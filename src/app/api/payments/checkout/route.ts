@@ -30,7 +30,8 @@ export async function POST(req: Request) {
       invoiceId: invoice._id.toString(),
       amount: Number(invoice.amount),
       customerEmail: (invoice.clientId as any)?.email || "customer@example.com",
-      customerName: (invoice.clientId as any)?.name || "Valued Customer"
+      customerName: (invoice.clientId as any)?.name || "Valued Customer",
+      description: (invoice as any).serviceDetails || "Kliq Invoicing Services"
     });
 
     // In a real environment, redirect to the returned provider portal URL.

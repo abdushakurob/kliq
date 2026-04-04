@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useGeminiLive } from "@/hooks/useGeminiLive";
 
 export default function CreateInvoicePage() {
   const router = useRouter();
@@ -21,11 +22,46 @@ export default function CreateInvoicePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [magicInput, setMagicInput] = useState("");
-  const [messages, setMessages] = useState<{role: string, content: string}[]>([
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([
     { role: "assistant", content: `Hello ${session?.user?.name?.split(' ')[0] || ''}! Ready to bill for your next project? Just tell me what you did and for whom.` }
   ]);
   const [isParsingAI, setIsParsingAI] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isLiveMode, setIsLiveMode] = useState(false);
+
+  // Gemini Live Hook
+  const { 
+    isListening: isLiveListening, 
+    messages: liveMessages, 
+    startSession: startLiveSession, 
+    stopSession: stopLiveSession 
+  } = useGeminiLive(
+    process.env.NEXT_PUBLIC_RELAY_URL || "", 
+    `You are the Kliq Pricing Coach. Gather Client Name, Service, and Amount. Today is ${new Date().toISOString()}. Once complete, output the JSON: \`\`\`json { "clientName": "...", "serviceDetails": "...", "amount": 0, "dueDate": "YYYY-MM-DD" } \`\`\``
+  );
+
+  // Sync Live Messages to Local State
+  useEffect(() => {
+    if (liveMessages.length > 0) {
+      const lastLive = liveMessages[liveMessages.length - 1];
+      setMessages(prev => [...prev, lastLive]);
+      
+      // Attempt to parse JSON from live response
+      const jsonMatch = lastLive.content.match(/```json\n([\s\S]*?)\n```/);
+      if (jsonMatch) {
+         try {
+           const parsed = JSON.parse(jsonMatch[1]);
+           setFormData(f => ({
+             ...f,
+             clientName: parsed.clientName || f.clientName,
+             serviceDescription: parsed.serviceDetails || f.serviceDescription,
+             amount: parsed.amount?.toString() || f.amount,
+             dueDate: parsed.dueDate || f.dueDate
+           }));
+         } catch(e) {}
+      }
+    }
+  }, [liveMessages]);
 
   let recognitionRef: any = null;
 
@@ -190,18 +226,47 @@ export default function CreateInvoicePage() {
                     <span className="material-symbols-outlined text-secondary-fixed text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
                     <h3 className="text-sm font-bold tracking-widest text-primary-fixed uppercase">Kliq AI Assistant</h3>
                  </div>
-                 <div className="bg-secondary-fixed/20 text-secondary-fixed text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full">Active</div>
+                 <div className="flex items-center gap-4">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        if (isLiveMode) {
+                          stopLiveSession();
+                          setIsLiveMode(false);
+                        } else {
+                          setIsLiveMode(true);
+                        }
+                      }}
+                      className={`text-[10px] uppercase tracking-widest font-black px-3 py-1 rounded-full transition-all ${isLiveMode ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    >
+                      {isLiveMode ? 'Exit Live' : 'Go Live'}
+                    </button>
+                    <div className={`${isLiveMode || isListening ? 'bg-secondary-fixed' : 'bg-surface-container-highest/20'} text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full transition-colors`}>
+                      {isLiveMode ? 'Live Relay' : isListening ? 'Listening' : 'Ready'}
+                    </div>
+                 </div>
               </div>
 
               {/* Chat View */}
               <div className="mb-6 space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {messages.map((msg, i) => (
                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                     <div className={`p-4 rounded-3xl max-w-[85%] text-sm font-medium leading-relaxed ${msg.role === 'user' ? 'bg-secondary-fixed text-on-secondary-fixed rounded-tr-sm' : 'bg-white/10 text-white rounded-tl-sm'}`}>
+                     <div className={`p-4 rounded-3xl max-w-[85%] text-sm font-medium leading-relaxed ${msg.role === 'user' ? 'bg-secondary-fixed text-on-secondary-fixed shadow-lg rounded-tr-sm' : 'bg-white/10 text-white rounded-tl-sm backdrop-blur-md border border-white/5'}`}>
                        {msg.content}
                      </div>
                    </div>
                 ))}
+                
+                {isLiveMode && (
+                   <div className="flex justify-center py-4">
+                      <div className="flex items-end gap-1 h-8">
+                         {[...Array(5)].map((_, i) => (
+                           <div key={i} className={`w-1 bg-secondary-fixed rounded-full animate-bounce h-${(i % 3) + 4}`} style={{ animationDelay: `${i * 0.1}s` }}></div>
+                         ))}
+                      </div>
+                   </div>
+                )}
+
                 {isParsingAI && (
                    <div className="flex justify-start">
                      <div className="p-4 rounded-3xl bg-white/10 text-white rounded-tl-sm text-sm font-medium flex gap-2 items-center">
@@ -214,28 +279,59 @@ export default function CreateInvoicePage() {
               </div>
 
               <div className="relative mt-2">
-                <textarea
-                  className="w-full bg-white/10 border-0 rounded-2xl p-4 pr-32 text-white placeholder:text-white/40 focus:ring-2 focus:ring-secondary-fixed transition-all text-sm resize-none font-body shadow-inner"
-                  id="ai-input"
-                  placeholder="Tell Kliq about your gig..."
-                  value={magicInput}
-                  onChange={(e) => setMagicInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleMagicInputSubmit();
-                    }
-                  }}
-                ></textarea>
-                <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                  <button type="button" onClick={handleMagicInputSubmit} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low text-white hover:bg-surface-container transition-colors">
-                     <span className="material-symbols-outlined text-sm">send</span>
-                  </button>
-                  <button type="button" onClick={(e) => { e.preventDefault(); startListening(); }} title="Click to speak (Works best in Chrome)" className={`w-12 h-12 flex items-center justify-center rounded-full ${isListening ? 'bg-error text-white animate-pulse' : 'bg-secondary-fixed text-on-secondary-fixed'} hover:scale-105 transition-transform active:scale-95 shadow-lg`}>
-                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
-                  </button>
-                </div>
+                {isLiveMode ? (
+                  <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-8 flex flex-col items-center justify-center gap-6 group">
+                     {!isLiveListening ? (
+                        <button 
+                          type="button"
+                          onClick={startLiveSession}
+                          className="w-20 h-20 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center shadow-2xl hover:scale-105 transition-transform"
+                        >
+                           <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
+                        </button>
+                     ) : (
+                        <div className="relative flex items-center justify-center">
+                           <div className="absolute w-24 h-24 bg-secondary-fixed/20 rounded-full animate-ping"></div>
+                           <button 
+                             type="button"
+                             onClick={stopLiveSession}
+                             className="relative w-20 h-20 rounded-full bg-error text-white flex items-center justify-center shadow-2xl"
+                           >
+                              <span className="material-symbols-outlined text-4xl">stop</span>
+                           </button>
+                        </div>
+                     )}
+                     <p className="text-sm font-bold text-secondary-fixed-dim animate-pulse">
+                        {isLiveListening ? 'Gemini is listening in real-time...' : 'Click to start Live Audio convo'}
+                     </p>
+                  </div>
+                ) : (
+                  <>
+                    <textarea
+                      className="w-full bg-white/10 border-0 rounded-2xl p-4 pr-32 text-white placeholder:text-white/40 focus:ring-2 focus:ring-secondary-fixed transition-all text-sm resize-none font-body shadow-inner"
+                      id="ai-input"
+                      placeholder="Tell Kliq about your gig..."
+                      value={magicInput}
+                      onChange={(e) => setMagicInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleMagicInputSubmit();
+                        }
+                      }}
+                    ></textarea>
+                    <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                      <button type="button" onClick={handleMagicInputSubmit} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low text-white hover:bg-surface-container transition-colors">
+                         <span className="material-symbols-outlined text-sm">send</span>
+                      </button>
+                      <button type="button" onClick={(e) => { e.preventDefault(); startListening(); }} title="Click to speak (Works best in Chrome)" className={`w-12 h-12 flex items-center justify-center rounded-full ${isListening ? 'bg-error text-white animate-pulse' : 'bg-secondary-fixed text-on-secondary-fixed'} hover:scale-105 transition-transform active:scale-95 shadow-lg`}>
+                        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
+
             </div>
             {/* Aesthetic Background Texture */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary-container to-primary rounded-full blur-3xl -mr-32 -mt-32 opacity-50"></div>
