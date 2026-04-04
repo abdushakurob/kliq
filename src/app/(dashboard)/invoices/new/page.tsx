@@ -33,12 +33,18 @@ export default function CreateInvoicePage() {
   const { 
     isListening: isLiveListening, 
     messages: liveMessages, 
+    error: liveError,
     startSession: startLiveSession, 
     stopSession: stopLiveSession 
   } = useGeminiLive(
     process.env.NEXT_PUBLIC_RELAY_URL || "", 
     `You are the Kliq Pricing Coach. Gather Client Name, Service, and Amount. Today is ${new Date().toISOString()}. Once complete, output the JSON: \`\`\`json { "clientName": "...", "serviceDetails": "...", "amount": 0, "dueDate": "YYYY-MM-DD" } \`\`\``
   );
+
+  // Transfer Live Errors to UI
+  useEffect(() => {
+    if (liveError) setError(liveError);
+  }, [liveError]);
 
   // Sync Live Messages to Local State
   useEffect(() => {
@@ -63,46 +69,9 @@ export default function CreateInvoicePage() {
     }
   }, [liveMessages]);
 
-  let recognitionRef: any = null;
-
+  // Voice Recognition (Legacy cleanup - we prioritize Live mode now)
   const startListening = () => {
-    if (isListening && recognitionRef) {
-       recognitionRef.stop();
-       return;
-    }
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-       setError("Your browser does not support Voice Recognition. Please try Google Chrome.");
-       return;
-    }
-    const recognition = new SpeechRecognition();
-    recognitionRef = recognition;
-    
-    recognition.continuous = false;
-    // Turn on interimResults so text visually streams in if supported
-    recognition.interimResults = false; 
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (event: any) => {
-      let transcriptText = "";
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        transcriptText += event.results[i][0].transcript;
-      }
-      console.log('Voice result captured:', transcriptText);
-      setMagicInput(prev => prev + (prev ? " " : "") + transcriptText);
-    };
-    recognition.onerror = (e: any) => {
-      console.warn("Speech error:", e.error);
-      if (e.error !== 'no-speech') {
-         setError(`Voice error: ${e.error}`);
-      }
-      setIsListening(false);
-    };
-    recognition.onend = () => setIsListening(false);
-    
-    recognition.start();
+    setError("Please use the 'Go Live' button for a better voice experience.");
   };
 
   const handleMagicInputSubmit = async () => {
@@ -117,7 +86,8 @@ export default function CreateInvoicePage() {
 
     try {
       let historyToSend = newHistory;
-      if (historyToSend.length > 0 && historyToSend[0].role === "assistant") {
+      // Filter out ANY model/assistant messages at the absolute beginning of the array
+      while (historyToSend.length > 0 && historyToSend[0].role === "assistant") {
          historyToSend = historyToSend.slice(1);
       }
 
@@ -324,9 +294,6 @@ export default function CreateInvoicePage() {
                       <button type="button" onClick={handleMagicInputSubmit} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low text-white hover:bg-surface-container transition-colors">
                          <span className="material-symbols-outlined text-sm">send</span>
                       </button>
-                      <button type="button" onClick={(e) => { e.preventDefault(); startListening(); }} title="Click to speak (Works best in Chrome)" className={`w-12 h-12 flex items-center justify-center rounded-full ${isListening ? 'bg-error text-white animate-pulse' : 'bg-secondary-fixed text-on-secondary-fixed'} hover:scale-105 transition-transform active:scale-95 shadow-lg`}>
-                        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
-                      </button>
                     </div>
                   </>
                 )}
@@ -426,7 +393,7 @@ export default function CreateInvoicePage() {
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Issue Date</p>
-                    <p className="text-sm font-bold">{new Date().toLocaleDateString()}</p>
+                    <p className="text-sm font-bold">{new Date().toLocaleDateString('en-GB')}</p>
                   </div>
                 </div>
                 <div className="space-y-4">
