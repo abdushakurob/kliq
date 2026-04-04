@@ -10,31 +10,97 @@ export default function CreateInvoicePage() {
   const { data: session } = useSession();
 
   const [formData, setFormData] = useState({
-    clientName: "Kolawole Adedeji",
-    clientEmail: "kola.a@example.com",
-    serviceDescription: "3-hour Outdoor Photography Session",
-    amount: "50000",
-    dueDate: "2026-11-15",
-    notesTerms: "Include bank details or specific terms...",
+    clientName: "",
+    clientEmail: "",
+    serviceDescription: "",
+    amount: "",
+    dueDate: "",
+    notesTerms: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [magicInput, setMagicInput] = useState("");
+  const [messages, setMessages] = useState<{role: string, content: string}[]>([
+    { role: "assistant", content: `Hello ${session?.user?.name?.split(' ')[0] || ''}! Ready to bill for your next project? Just tell me what you did and for whom.` }
+  ]);
   const [isParsingAI, setIsParsingAI] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+
+  let recognitionRef: any = null;
+
+  const startListening = () => {
+    if (isListening && recognitionRef) {
+       recognitionRef.stop();
+       return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+       setError("Your browser does not support Voice Recognition. Please try Google Chrome.");
+       return;
+    }
+    const recognition = new SpeechRecognition();
+    recognitionRef = recognition;
+    
+    recognition.continuous = false;
+    // Turn on interimResults so text visually streams in if supported
+    recognition.interimResults = false; 
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event: any) => {
+      let transcriptText = "";
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        transcriptText += event.results[i][0].transcript;
+      }
+      console.log('Voice result captured:', transcriptText);
+      setMagicInput(prev => prev + (prev ? " " : "") + transcriptText);
+    };
+    recognition.onerror = (e: any) => {
+      console.warn("Speech error:", e.error);
+      if (e.error !== 'no-speech') {
+         setError(`Voice error: ${e.error}`);
+      }
+      setIsListening(false);
+    };
+    recognition.onend = () => setIsListening(false);
+    
+    recognition.start();
+  };
 
   const handleMagicInputSubmit = async () => {
     if (!magicInput.trim()) return;
+    
+    const userText = magicInput.trim();
+    const newHistory = [...messages, { role: "user", content: userText }];
+    setMessages(newHistory);
+    setMagicInput("");
     setIsParsingAI(true);
     setError("");
+
     try {
+      let historyToSend = newHistory;
+      if (historyToSend.length > 0 && historyToSend[0].role === "assistant") {
+         historyToSend = historyToSend.slice(1);
+      }
+
+      const historyPayload = historyToSend.map(m => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }]
+      }));
+
       const res = await fetch("/api/ai/parse-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: magicInput })
+        body: JSON.stringify({ messages: historyPayload })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      if (data.reply) {
+         setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+      }
 
       if (data.parsed) {
         setFormData(prev => ({
@@ -44,7 +110,6 @@ export default function CreateInvoicePage() {
           amount: data.parsed.amount?.toString() || prev.amount,
           dueDate: data.parsed.dueDate || prev.dueDate
         }));
-        setMagicInput(""); // clear on success
       }
     } catch (err: any) {
       setError(err.message);
@@ -98,41 +163,61 @@ export default function CreateInvoicePage() {
           </div>
           <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              alt="User" 
-              className="w-full h-full object-cover" 
-              src={session?.user?.image || "https://lh3.googleusercontent.com/aida-public/AB6AXuDhYQ6bM_quYbfE7N5Uuwjamulo8O70eiaaa1HvpJjh_wEQd8KTplrCND36fRP5H-_rI5bZjTZBIf4cBLUKTRILh_5Rrcy1MGtsV7KsNBw03U-GB4zns-8zroN2Gyu490gXBDxoZfxs2FLfqD6MEmHs6lP1glhEfMky3DqsbDrKZHTx61pW5sUi3_zYH06AAHgpUBpsIAwL4LvCWIFjJ3nInduNFMbE5PH_aY25VhEsZquUmwpYmeHFvZx3sLyKQBNjson3zcvi8oc"} 
+            <img
+              alt="User"
+              className="w-full h-full object-cover"
+              src={session?.user?.image || "https://lh3.googleusercontent.com/aida-public/AB6AXuDhYQ6bM_quYbfE7N5Uuwjamulo8O70eiaaa1HvpJjh_wEQd8KTplrCND36fRP5H-_rI5bZjTZBIf4cBLUKTRILh_5Rrcy1MGtsV7KsNBw03U-GB4zns-8zroN2Gyu490gXBDxoZfxs2FLfqD6MEmHs6lP1glhEfMky3DqsbDrKZHTx61pW5sUi3_zYH06AAHgpUBpsIAwL4LvCWIFjJ3nInduNFMbE5PH_aY25VhEsZquUmwpYmeHFvZx3sLyKQBNjson3zcvi8oc"}
             />
           </div>
         </div>
       </header>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Input Forms */}
         <section className="lg:col-span-7 space-y-8">
-          
+
           {error && (
             <div className="p-4 bg-error-container text-on-error-container rounded-xl font-medium">
               {error}
             </div>
           )}
 
-          {/* AI Natural Language Input */}
+          {/* AI Conversational Input View */}
           <div className="p-8 rounded-3xl bg-primary text-white relative overflow-hidden group shadow-xl">
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="material-symbols-outlined text-secondary-fixed" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                <h3 className="text-sm font-bold uppercase tracking-widest text-primary-fixed">Kliq Magic Input</h3>
+            <div className="relative z-10 w-full">
+              <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
+                 <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-secondary-fixed text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                    <h3 className="text-sm font-bold tracking-widest text-primary-fixed uppercase">Kliq AI Assistant</h3>
+                 </div>
+                 <div className="bg-secondary-fixed/20 text-secondary-fixed text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full">Active</div>
               </div>
-              <label className="block text-2xl font-semibold mb-4 leading-tight font-headline" htmlFor="ai-input">
-                Describe your gig naturally...
-              </label>
-              <div className="relative">
-                <textarea 
-                  className="w-full bg-white/10 border-0 rounded-2xl p-5 text-white placeholder:text-white/40 focus:ring-2 focus:ring-secondary-fixed transition-all text-lg resize-none font-body" 
-                  id="ai-input" 
-                  placeholder="e.g. 'I'm charging 50k for a 3-hour photography session for Kola next Tuesday'" 
-                  rows={3}
+
+              {/* Chat View */}
+              <div className="mb-6 space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {messages.map((msg, i) => (
+                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                     <div className={`p-4 rounded-3xl max-w-[85%] text-sm font-medium leading-relaxed ${msg.role === 'user' ? 'bg-secondary-fixed text-on-secondary-fixed rounded-tr-sm' : 'bg-white/10 text-white rounded-tl-sm'}`}>
+                       {msg.content}
+                     </div>
+                   </div>
+                ))}
+                {isParsingAI && (
+                   <div className="flex justify-start">
+                     <div className="p-4 rounded-3xl bg-white/10 text-white rounded-tl-sm text-sm font-medium flex gap-2 items-center">
+                        <span className="w-2 h-2 rounded-full bg-white animate-bounce"></span>
+                        <span className="w-2 h-2 rounded-full bg-white animate-bounce delay-75"></span>
+                        <span className="w-2 h-2 rounded-full bg-white animate-bounce delay-150"></span>
+                     </div>
+                   </div>
+                )}
+              </div>
+
+              <div className="relative mt-2">
+                <textarea
+                  className="w-full bg-white/10 border-0 rounded-2xl p-4 pr-32 text-white placeholder:text-white/40 focus:ring-2 focus:ring-secondary-fixed transition-all text-sm resize-none font-body shadow-inner"
+                  id="ai-input"
+                  placeholder="Tell Kliq about your gig..."
                   value={magicInput}
                   onChange={(e) => setMagicInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -142,24 +227,20 @@ export default function CreateInvoicePage() {
                     }
                   }}
                 ></textarea>
-                <button 
-                  onClick={handleMagicInputSubmit}
-                  disabled={isParsingAI || !magicInput.trim()}
-                  className="absolute bottom-4 right-4 w-12 h-12 flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-fixed hover:scale-105 transition-all active:scale-95 shadow-lg disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed"
-                >
-                  {isParsingAI ? (
-                    <span className="material-symbols-outlined animate-spin">progress_activity</span>
-                  ) : (
-                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                  )}
-                </button>
+                <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                  <button type="button" onClick={handleMagicInputSubmit} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low text-white hover:bg-surface-container transition-colors">
+                     <span className="material-symbols-outlined text-sm">send</span>
+                  </button>
+                  <button type="button" onClick={(e) => { e.preventDefault(); startListening(); }} title="Click to speak (Works best in Chrome)" className={`w-12 h-12 flex items-center justify-center rounded-full ${isListening ? 'bg-error text-white animate-pulse' : 'bg-secondary-fixed text-on-secondary-fixed'} hover:scale-105 transition-transform active:scale-95 shadow-lg`}>
+                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
+                  </button>
+                </div>
               </div>
-              <p className="mt-4 text-xs text-primary-fixed/60 font-medium">Powered by Gemini. Hit Enter to autofill your invoice instantly.</p>
             </div>
             {/* Aesthetic Background Texture */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary-container to-primary rounded-full blur-3xl -mr-32 -mt-32 opacity-50"></div>
           </div>
-          
+
           {/* Manual Form */}
           <div className="p-8 rounded-3xl bg-surface-container-lowest shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
             <div className="flex items-center gap-2 mb-8">
@@ -171,7 +252,7 @@ export default function CreateInvoicePage() {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Client Name</label>
-                  <input name="clientName" value={formData.clientName} onChange={handleChange} className="w-full h-14 px-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium" type="text" />
+                  <input name="clientName" value={formData.clientName} onChange={handleChange} className="w-full h-14 px-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium" placeholder="E.g. Kolawole Adedeji" type="text" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Email Address</label>
@@ -180,14 +261,14 @@ export default function CreateInvoicePage() {
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Service Description</label>
-                <input name="serviceDescription" value={formData.serviceDescription} onChange={handleChange} className="w-full h-14 px-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium" type="text" />
+                <input name="serviceDescription" value={formData.serviceDescription} onChange={handleChange} className="w-full h-14 px-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium" placeholder="E.g. 3-hour Outdoor Photography" type="text" />
               </div>
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Amount (NGN)</label>
                   <div className="relative">
                     <span className="absolute left-5 top-1/2 -translate-y-1/2 font-bold text-on-surface-variant">₦</span>
-                    <input name="amount" value={formData.amount} onChange={handleChange} className="w-full h-14 pl-10 pr-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-bold" type="number" />
+                    <input name="amount" value={formData.amount} onChange={handleChange} className="w-full h-14 pl-10 pr-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-bold" placeholder="50000" type="number" />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -197,13 +278,13 @@ export default function CreateInvoicePage() {
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Notes / Terms</label>
-                <textarea name="notesTerms" value={formData.notesTerms} onChange={handleChange} className="w-full p-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium resize-none" rows={3}></textarea>
+                <textarea name="notesTerms" value={formData.notesTerms} onChange={handleChange} className="w-full p-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium resize-none" placeholder="Include bank details or specific terms..." rows={3}></textarea>
               </div>
             </form>
           </div>
-          
+
           <div className="flex gap-4">
-            <button 
+            <button
               onClick={() => handleCreateInvoice("sent")}
               disabled={loading}
               className="flex-1 h-16 rounded-2xl bg-secondary-fixed text-on-secondary-fixed font-bold text-lg flex items-center justify-center gap-3 hover:shadow-xl hover:shadow-secondary-fixed/20 transition-all active:scale-[0.98] disabled:opacity-70"
@@ -211,7 +292,7 @@ export default function CreateInvoicePage() {
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
               {loading ? "Sending..." : "Create & Send Invoice"}
             </button>
-            <button 
+            <button
               onClick={() => handleCreateInvoice("draft")}
               disabled={loading}
               className="px-8 h-16 rounded-2xl bg-surface-container-highest text-primary font-bold hover:bg-surface-dim transition-colors disabled:opacity-70"
@@ -220,7 +301,7 @@ export default function CreateInvoicePage() {
             </button>
           </div>
         </section>
-        
+
         {/* Right Column: Live Preview */}
         <section className="lg:col-span-5 sticky top-8">
           <div className="bg-white rounded-[2rem] shadow-2xl shadow-primary/5 overflow-hidden border border-surface-container-highest/50 relative">

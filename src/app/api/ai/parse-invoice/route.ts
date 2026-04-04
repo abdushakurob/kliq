@@ -15,41 +15,62 @@ export async function POST(req: Request) {
        );
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash", 
-      generationConfig: { responseMimeType: "application/json" } 
-    });
-
     const body = await req.json();
-    const { text } = body;
+    const { messages } = body; 
     
-    if (!text) return NextResponse.json({ error: "Missing 'text' parameter." }, { status: 400 });
+    if (!messages || !messages.length) return NextResponse.json({ error: "Missing 'messages' array parameter." }, { status: 400 });
 
-    const prompt = `
-      You are an expert invoice data extractor for a creative studio application called Kliq.
-      Extract the following information from the user's natural language input:
-      1. clientName (string): The name of the client, individual, or company they are charging.
-      2. serviceDetails (string): A short professional phrase summarizing the services rendered (e.g. "Logo Design", "Architectural Rendering").
-      3. amount (number): The total amount to be charged. Infer numbers accurately (e.g. "50k" -> 50000, "2M" -> 2000000). Only return flat number value.
-      4. dueDate (string): The YYYY-MM-DD date representation of the due date. Reference today which is: ${new Date().toISOString()}.
-
-      User Input: "${text}"
-
-      Respond ONLY with a JSON object exactly matching this schema:
+    const systemInstruction = `
+      You are the Kliq Pricing Coach and AI Assistant.
+      Your job is to converse with the user to gather info to generate a professional invoice.
+      Required info: Client Name, Service Description, Amount.
+      If info is missing, formulate a friendly question asking for it.
+      If the user asks for pricing advice, give them a recommendation based on their input.
+      Once you have gathered enough parameters, give a friendly confirmation statement, and append a JSON block exactly containing:
+      \`\`\`json
       {
-         "clientName": "Extracted Name or leave empty",
-         "serviceDetails": "Extracted services",
+         "clientName": "...",
+         "serviceDetails": "...",
          "amount": 0,
          "dueDate": "YYYY-MM-DD"
       }
+      \`\`\`
+      Only output the JSON block when the invoice data is thoroughly complete in the conversation history.
+      Today is ${new Date().toISOString()}.
     `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    const data = JSON.parse(responseText);
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ 
+       model: "gemini-2.5-flash",
+       systemInstruction: {
+         role: "system",
+         parts: [{ text: systemInstruction }]
+       }
+    });
 
-    return NextResponse.json({ success: true, parsed: data }, { status: 200 });
+    const chat = model.startChat({
+        history: messages.slice(0, -1) // Provide history except the latest message
+    });
+
+    const userMessageText = messages[messages.length - 1].parts[0].text;
+    const result = await chat.sendMessage(userMessageText);
+    const responseText = result.response.text();
+
+    let parsedExtract = null;
+    let cleanText = responseText;
+
+    // Check for JSON Extracted Output
+    const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
+    if (jsonMatch) {
+       try {
+         parsedExtract = JSON.parse(jsonMatch[1]);
+         cleanText = responseText.replace(jsonMatch[0], "").trim();
+       } catch (e) {
+          console.error("JSON parse failed", e);
+       }
+    }
+
+    return NextResponse.json({ success: true, reply: cleanText, parsed: parsedExtract }, { status: 200 });
 
   } catch (error: any) {
     console.error("AI parse error:", error);

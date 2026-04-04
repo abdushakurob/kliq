@@ -11,7 +11,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   if (!session) return notFound();
 
   await dbConnect();
-  
+
   // Find Invoice
   const invoice = await Invoice.findOne({
     _id: params.id,
@@ -34,11 +34,10 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-on-surface font-headline flex items-center gap-3">
               Invoice Details
-              <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${
-                serialized.status === 'paid' ? 'bg-secondary-container/30 text-secondary-fixed' :
-                serialized.status === 'overdue' ? 'bg-error-container text-on-error-container' :
-                'bg-surface-container-highest text-on-surface'
-              }`}>
+              <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${serialized.status === 'paid' ? 'bg-secondary-container/30 text-secondary-fixed' :
+                  serialized.status === 'overdue' ? 'bg-error-container text-on-error-container' :
+                    'bg-surface-container-highest text-on-surface'
+                }`}>
                 {serialized.status}
               </span>
             </h1>
@@ -53,7 +52,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           <div className="bg-white rounded-[2rem] shadow-[0_12px_40px_rgba(0,52,52,0.04)] overflow-hidden border border-surface-container-highest/50 relative">
             <div className="h-2 bg-gradient-to-r from-primary via-primary-container to-secondary-fixed"></div>
             <div className="p-12 relative z-10">
-               <div className="flex justify-between items-start mb-16">
+              <div className="flex justify-between items-start mb-16">
                 <div>
                   <h4 className="text-3xl font-black text-primary tracking-tighter font-headline">Kliq</h4>
                   <div className="mt-4 space-y-1">
@@ -69,40 +68,40 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
               </div>
 
               <div className="flex justify-between items-end border-b border-surface-container pb-6 mb-8">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Bill To</p>
-                    <p className="text-xl font-bold">{serialized.clientId?.name || 'Client Name'}</p>
-                    <p className="text-sm text-on-surface-variant">{serialized.clientId?.email || 'client@email.com'}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Amount Due</p>
-                    <p className="text-3xl font-black text-primary font-headline tracking-tighter">₦ {Number(serialized.amount).toLocaleString()}</p>
-                  </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Bill To</p>
+                  <p className="text-xl font-bold">{serialized.clientId?.name || 'Client Name'}</p>
+                  <p className="text-sm text-on-surface-variant">{serialized.clientId?.email || 'client@email.com'}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Amount Due</p>
+                  <p className="text-3xl font-black text-primary font-headline tracking-tighter">₦ {Number(serialized.amount).toLocaleString()}</p>
+                </div>
               </div>
 
               <div className="space-y-4 mb-16">
-                  <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-on-surface-variant border-b border-surface-container pb-3">
-                    <span>Description of Service</span>
-                    <span>Total</span>
+                <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-on-surface-variant border-b border-surface-container pb-3">
+                  <span>Description of Service</span>
+                  <span>Total</span>
+                </div>
+                <div className="flex justify-between items-start py-2">
+                  <div className="max-w-[70%]">
+                    <p className="font-bold text-lg font-headline">{serialized.serviceDetails || 'Design Services'}</p>
                   </div>
-                  <div className="flex justify-between items-start py-2">
-                    <div className="max-w-[70%]">
-                      <p className="font-bold text-lg font-headline">{serialized.serviceDetails || 'Design Services'}</p>
-                    </div>
-                    <p className="font-bold text-lg font-headline">₦ {Number(serialized.amount).toLocaleString()}</p>
-                  </div>
+                  <p className="font-bold text-lg font-headline">₦ {Number(serialized.amount).toLocaleString()}</p>
+                </div>
               </div>
 
-               <div className="mt-12 p-6 rounded-2xl bg-surface-container-low border-l-4 border-secondary-fixed">
-                  <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Payment Terms / Notes</p>
-                  <p className="text-sm text-on-surface italic leading-relaxed">&quot;{serialized.notesTerms || 'Thank you for your business.'}&quot;</p>
-                  <p className="text-xs font-bold text-error mt-4">Due strict by: {serialized.dueDate ? new Date(serialized.dueDate).toLocaleDateString() : 'N/A'}</p>
+              <div className="mt-12 p-6 rounded-2xl bg-surface-container-low border-l-4 border-secondary-fixed">
+                <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Payment Terms / Notes</p>
+                <p className="text-sm text-on-surface italic leading-relaxed">&quot;{serialized.notesTerms || 'Thank you for your business.'}&quot;</p>
+                <p className="text-xs font-bold text-error mt-4">Due strict by: {serialized.dueDate ? new Date(serialized.dueDate).toLocaleDateString() : 'N/A'}</p>
               </div>
             </div>
-            
-             <div className="mt-12 flex justify-center opacity-5 grayscale pointer-events-none absolute bottom-4 w-full left-0 z-0 overflow-hidden">
-                <h4 className="text-[10rem] font-black text-primary tracking-tighter italic select-none">Kliq</h4>
-              </div>
+
+            <div className="mt-12 flex justify-center opacity-5 grayscale pointer-events-none absolute bottom-4 w-full left-0 z-0 overflow-hidden">
+              <h4 className="text-[10rem] font-black text-primary tracking-tighter italic select-none">Kliq</h4>
+            </div>
           </div>
         </section>
 
@@ -113,17 +112,17 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
             <p className="text-sm text-on-surface-variant leading-relaxed mb-6">
               Clients can view this invoice online and drop a payment instantly using their card or transfer.
             </p>
-            
+
             <div className="relative mb-6">
-               <input 
-                 readOnly 
-                 value={link}
-                 className="w-full bg-surface-container-low border-none rounded-xl py-3 pl-4 pr-12 text-sm font-medium text-on-surface truncate outline-none"
-               />
-               {/* Copy Button component placeholder. Normally we use client-side logic to copy, keeping this simple. */}
+              <input
+                readOnly
+                value={link}
+                className="w-full bg-surface-container-low border-none rounded-xl py-3 pl-4 pr-12 text-sm font-medium text-on-surface truncate outline-none"
+              />
+              {/* Copy Button component placeholder. Normally we use client-side logic to copy, keeping this simple. */}
             </div>
 
-            <Link 
+            <Link
               href={serialized.status === 'draft' ? `/invoices/${serialized._id}/edit` : `/pay/${serialized._id}`}
               className="w-full h-12 rounded-xl bg-primary text-white font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
               target="_blank"
@@ -146,8 +145,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
               </button>
             </div>
           </div>
-          
-           <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40">
+
+          <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40">
             <h3 className="font-bold font-headline mb-4 text-error">Danger Zone</h3>
             <button className="w-full p-3 bg-error-container text-on-error-container font-bold text-sm rounded-xl hover:bg-error hover:text-white transition-colors text-center">
               Delete Invoice
