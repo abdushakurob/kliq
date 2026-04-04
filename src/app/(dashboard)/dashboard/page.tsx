@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [pendingPayments, setPendingPayments] = useState(0);
   const [overdueInvoices, setOverdueInvoices] = useState(0);
   const [totalClients, setTotalClients] = useState(0);
+  const [chartData, setChartData] = useState<{label: string, value: number, heightPercent: number}[]>([]);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -50,6 +51,31 @@ export default function DashboardPage() {
           setPendingPayments(pending);
           setOverdueInvoices(overdue);
           setTotalClients(clients.size);
+
+          // Calculate Chart Data (Last 4 Weeks Earnings)
+          const now = new Date();
+          const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+          const weeks = [0, 0, 0, 0];
+
+          invs.forEach((inv: any) => {
+            if (inv.status !== "paid") return;
+            const invDate = new Date(inv.updatedAt || inv.createdAt);
+            if (invDate >= fourWeeksAgo && invDate <= now) {
+              const diffDays = Math.floor((now.getTime() - invDate.getTime()) / (1000 * 60 * 60 * 24));
+              const weekIndex = 3 - Math.floor(diffDays / 7);
+              if (weekIndex >= 0 && weekIndex <= 3) {
+                weeks[weekIndex] += Number(inv.amount) || 0;
+              }
+            }
+          });
+
+          const maxVal = Math.max(...weeks, 10000); // 10k minimum scale
+          const mappedChart = weeks.map((val, i) => ({
+            label: `Week ${i + 1}`,
+            value: val,
+            heightPercent: Math.max((val / maxVal) * 100, 5) // At least 5% to be visible
+          }));
+          setChartData(mappedChart);
         }
       } catch (error) {
         console.error("Failed to fetch invoices", error);
@@ -178,24 +204,25 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Mock Chart using visual elements */}
-          <div className="h-64 flex items-end justify-between gap-2 px-2">
-            <div className="w-full bg-surface-container-low rounded-t-lg h-24 hover:bg-primary/20 transition-colors"></div>
-            <div className="w-full bg-surface-container-low rounded-t-lg h-32 hover:bg-primary/20 transition-colors"></div>
-            <div className="w-full bg-primary-container rounded-t-lg h-48 hover:bg-primary transition-colors"></div>
-            <div className="w-full bg-surface-container-low rounded-t-lg h-16 hover:bg-primary/20 transition-colors"></div>
-            <div className="w-full bg-surface-container-low rounded-t-lg h-40 hover:bg-primary/20 transition-colors"></div>
-            <div className="w-full bg-secondary-fixed rounded-t-lg h-56 hover:opacity-80 transition-colors"></div>
-            <div className="w-full bg-surface-container-low rounded-t-lg h-20 hover:bg-primary/20 transition-colors"></div>
-            <div className="w-full bg-surface-container-low rounded-t-lg h-36 hover:bg-primary/20 transition-colors"></div>
-            <div className="w-full bg-primary-container rounded-t-lg h-52 hover:bg-primary transition-colors"></div>
-            <div className="w-full bg-surface-container-low rounded-t-lg h-28 hover:bg-primary/20 transition-colors"></div>
+          {/* Dynamic Chart */}
+          <div className="h-64 flex items-end justify-between gap-4 px-2">
+            {chartData.map((data, i) => (
+              <div key={i} className="group relative w-full flex flex-col items-center h-full justify-end">
+                <div 
+                  className="w-full bg-primary-container rounded-t-lg hover:bg-primary transition-all duration-300 cursor-pointer" 
+                  style={{ height: `${data.heightPercent}%` }}
+                ></div>
+                {/* Tooltip */}
+                <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-on-surface text-surface text-xs font-bold py-1 px-2 rounded whitespace-nowrap z-20 pointer-events-none">
+                  ₦{data.value.toLocaleString()}
+                </div>
+              </div>
+            ))}
           </div>
           <div className="flex justify-between mt-4 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-2">
-            <span>Week 1</span>
-            <span>Week 2</span>
-            <span>Week 3</span>
-            <span>Week 4</span>
+            {chartData.map((data, i) => (
+              <span key={i}>{data.label}</span>
+            ))}
           </div>
         </section>
 
