@@ -1,7 +1,80 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 export default function DashboardPage() {
+  const { data: session } = useSession();
+  const userName = session?.user?.name || "Creative Architect";
+
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Metrics
+  const [totalEarned, setTotalEarned] = useState(0);
+  const [pendingPayments, setPendingPayments] = useState(0);
+  const [overdueInvoices, setOverdueInvoices] = useState(0);
+  const [totalClients, setTotalClients] = useState(0);
+
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      try {
+        const res = await fetch("/api/invoices");
+        if (res.ok) {
+          const data = await res.json();
+          const invs = data.invoices || [];
+          setInvoices(invs);
+
+          // Calculate Metrics
+          let earned = 0;
+          let pending = 0;
+          let overdue = 0;
+          const clients = new Set();
+
+          invs.forEach((inv: any) => {
+            if (inv.clientId?._id) clients.add(inv.clientId._id);
+
+            const amt = Number(inv.amount) || 0;
+            if (inv.status === "paid") {
+              earned += amt;
+            } else if (inv.status === "overdue") {
+              overdue += amt;
+            } else {
+              // draft or sent or pending
+              pending += amt;
+            }
+          });
+
+          setTotalEarned(earned);
+          setPendingPayments(pending);
+          setOverdueInvoices(overdue);
+          setTotalClients(clients.size);
+        }
+      } catch (error) {
+        console.error("Failed to fetch invoices", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInvoices();
+  }, []);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "paid":
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-secondary-container/20 text-on-secondary-container">Paid</span>;
+      case "sent":
+      case "pending":
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-tertiary-fixed text-on-tertiary-fixed-variant">Pending</span>;
+      case "overdue":
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-error-container text-on-error-container">Overdue</span>;
+      default:
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-surface-container-highest text-on-surface">Draft</span>;
+    }
+  };
+
   return (
     <>
       {/* Top Bar / Greeting */}
@@ -11,7 +84,7 @@ export default function DashboardPage() {
             Overview
           </h1>
           <p className="text-on-surface-variant font-medium mt-1">
-            Welcome back, Creative Architect.
+            Welcome back, {userName}.
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -29,21 +102,18 @@ export default function DashboardPage() {
 
       {/* Summary Cards Bento Grid */}
       <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        <div className="col-span-1 bg-surface-container-lowest p-6 rounded-2xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40">
+        <div className="col-span-1 bg-surface-container-lowest p-6 rounded-2xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40 border-l-4 border-l-secondary-fixed">
           <div className="flex justify-between items-start mb-4">
             <div className="p-3 bg-primary-fixed rounded-xl">
               <span className="material-symbols-outlined text-primary">
                 account_balance_wallet
               </span>
             </div>
-            <span className="text-xs font-bold text-secondary-fixed-dim bg-secondary-container/10 px-2 py-1 rounded-md">
-              +12%
-            </span>
           </div>
           <h3 className="text-sm font-medium text-on-surface-variant mb-1">
             Total Earned
           </h3>
-          <p className="text-2xl font-black font-headline text-on-surface">₦4.2M</p>
+          <p className="text-2xl font-black font-headline text-on-surface">₦{totalEarned.toLocaleString()}</p>
         </div>
 
         <div className="col-span-1 bg-surface-container-lowest p-6 rounded-2xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40">
@@ -55,9 +125,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <h3 className="text-sm font-medium text-on-surface-variant mb-1">
-            Pending Payments
+            Pending / Drafts
           </h3>
-          <p className="text-2xl font-black font-headline text-on-surface">₦850k</p>
+          <p className="text-2xl font-black font-headline text-on-surface">₦{pendingPayments.toLocaleString()}</p>
         </div>
 
         <div className="col-span-1 bg-surface-container-lowest p-6 rounded-2xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40">
@@ -71,7 +141,7 @@ export default function DashboardPage() {
           <h3 className="text-sm font-medium text-on-surface-variant mb-1">
             Overdue Invoices
           </h3>
-          <p className="text-2xl font-black font-headline text-on-surface">₦120k</p>
+          <p className="text-2xl font-black font-headline text-on-surface">₦{overdueInvoices.toLocaleString()}</p>
         </div>
 
         <div className="col-span-1 bg-surface-container-lowest p-6 rounded-2xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40">
@@ -83,7 +153,7 @@ export default function DashboardPage() {
           <h3 className="text-sm font-medium text-on-surface-variant mb-1">
             Total Clients
           </h3>
-          <p className="text-2xl font-black font-headline text-on-surface">32</p>
+          <p className="text-2xl font-black font-headline text-on-surface">{totalClients}</p>
         </div>
       </section>
 
@@ -153,14 +223,14 @@ export default function DashboardPage() {
               <h3 className="font-bold font-headline">Quick Actions</h3>
             </div>
             <div className="space-y-3">
+              <Link href="/invoices/new" className="w-full flex items-center justify-between p-3 bg-surface-container-lowest rounded-xl hover:bg-white transition-colors cursor-pointer">
+                <span className="text-sm font-medium">Create New Invoice</span>
+                <span className="material-symbols-outlined text-primary text-sm">
+                  add
+                </span>
+              </Link>
               <button className="w-full flex items-center justify-between p-3 bg-surface-container-lowest rounded-xl hover:bg-white transition-colors">
                 <span className="text-sm font-medium">Add New Client</span>
-                <span className="material-symbols-outlined text-primary text-sm">
-                  chevron_right
-                </span>
-              </button>
-              <button className="w-full flex items-center justify-between p-3 bg-surface-container-lowest rounded-xl hover:bg-white transition-colors">
-                <span className="text-sm font-medium">Download Tax Report</span>
                 <span className="material-symbols-outlined text-primary text-sm">
                   chevron_right
                 </span>
@@ -209,89 +279,47 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container-low">
-                {/* Invoice Row */}
-                <tr className="hover:bg-surface-container-lowest/50 transition-colors">
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-900 font-bold text-xs">
-                        OD
-                      </div>
-                      <span className="font-bold text-on-surface">
-                        Oluwadamilare Design
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5 text-sm text-on-surface-variant">
-                    Oct 12, 2024
-                  </td>
-                  <td className="px-8 py-5 font-bold text-on-surface">₦450,000</td>
-                  <td className="px-8 py-5">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-secondary-container/20 text-on-secondary-container">
-                      Paid
-                    </span>
-                  </td>
-                  <td className="px-8 py-5 text-right">
-                    <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">
-                      more_vert
-                    </button>
-                  </td>
-                </tr>
-
-                {/* Invoice Row */}
-                <tr className="hover:bg-surface-container-lowest/50 transition-colors">
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-900 font-bold text-xs">
-                        SK
-                      </div>
-                      <span className="font-bold text-on-surface">
-                        Seyi Kwali Arch
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5 text-sm text-on-surface-variant">
-                    Oct 28, 2024
-                  </td>
-                  <td className="px-8 py-5 font-bold text-on-surface">₦1,200,000</td>
-                  <td className="px-8 py-5">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-tertiary-fixed text-on-tertiary-fixed-variant">
-                      Pending
-                    </span>
-                  </td>
-                  <td className="px-8 py-5 text-right">
-                    <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">
-                      more_vert
-                    </button>
-                  </td>
-                </tr>
-
-                {/* Invoice Row */}
-                <tr className="hover:bg-surface-container-lowest/50 transition-colors">
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-900 font-bold text-xs">
-                        BP
-                      </div>
-                      <span className="font-bold text-on-surface">
-                        Bio-Park Group
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5 text-sm text-on-surface-variant">
-                    Nov 02, 2024
-                  </td>
-                  <td className="px-8 py-5 font-bold text-on-surface">₦85,000</td>
-                  <td className="px-8 py-5">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-error-container text-on-error-container">
-                      Overdue
-                    </span>
-                  </td>
-                  <td className="px-8 py-5 text-right">
-                    <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">
-                      more_vert
-                    </button>
-                  </td>
-                </tr>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center font-medium text-on-surface-variant">
+                      <span className="material-symbols-outlined animate-spin mb-2 text-2xl">progress_activity</span>
+                      <p>Loading recent invoices...</p>
+                    </td>
+                  </tr>
+                ) : invoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center font-medium text-on-surface-variant">
+                      No recent invoices. <Link href="/invoices/new" className="text-primary hover:underline">Create one</Link>
+                    </td>
+                  </tr>
+                ) : (
+                  invoices.slice(0, 5).map((inv: any) => (
+                    <tr key={inv._id} className="hover:bg-surface-container-lowest/50 transition-colors">
+                      <td className="px-8 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-900 font-bold text-xs">
+                            {(inv.clientId?.name || "C").substring(0, 2).toUpperCase()}
+                          </div>
+                          <span className="font-bold text-on-surface">
+                            {inv.clientId?.name || "Unknown"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5 text-sm text-on-surface-variant">
+                        {new Date(inv.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-8 py-5 font-bold text-on-surface">₦{Number(inv.amount).toLocaleString()}</td>
+                      <td className="px-8 py-5">
+                        {getStatusBadge(inv.status)}
+                      </td>
+                      <td className="px-8 py-5 text-right">
+                        <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">
+                          more_vert
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

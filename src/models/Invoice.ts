@@ -11,6 +11,7 @@ export interface IInvoice extends Document {
   currency: string;
   dueDate: Date;
   status: InvoiceStatus;
+  notesTerms?: string;
   paymentLinkId?: string;
   paymentLinkUrl?: string;
   paymentProvider?: string;
@@ -32,6 +33,7 @@ const InvoiceSchema: Schema = new Schema(
       enum: ["draft", "sent", "paid", "overdue"], 
       default: "draft" 
     },
+    notesTerms: { type: String },
     paymentLinkId: { type: String },
     paymentLinkUrl: { type: String },
     paymentProvider: { type: String },
