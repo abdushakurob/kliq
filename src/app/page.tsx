@@ -25,12 +25,12 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="px-5 py-2 text-primary font-semibold hover:text-teal-600 transition-colors">
+            <Link href="/login" className="px-5 py-2 text-primary font-semibold hover:text-teal-600 transition-colors">
               Login
-            </button>
-            <button className="px-6 py-2.5 bg-primary text-white rounded-full font-bold shadow-[0_4px_20px_rgba(0,52,52,0.15)] active:scale-95 transition-all">
+            </Link>
+            <Link href="/register" className="px-6 py-2.5 bg-primary text-white rounded-full font-bold shadow-[0_4px_20px_rgba(0,52,52,0.15)] active:scale-95 transition-all">
               Get Started
-            </button>
+            </Link>
           </div>
         </div>
       </nav>
@@ -51,12 +51,12 @@ export default function LandingPage() {
               Stop chasing clients. Describe your gig, generate pro-grade invoices with your voice, and get paid instantly. Professionalism that works at the speed of your creativity.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <button className="px-8 py-4 bg-primary text-white rounded-full font-bold text-lg flex items-center justify-center gap-2 group transition-all">
+              <Link href="/register" className="px-8 py-4 bg-primary text-white rounded-full font-bold text-lg flex items-center justify-center gap-2 group transition-all">
                 Start Invoicing Free
                 <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">
                   arrow_forward
                 </span>
-              </button>
+              </Link>
               <div className="flex items-center gap-3 px-4 py-4">
                 <div className="flex -space-x-3">
                   {/* eslint-disable @next/next/no-img-element */}
@@ -248,9 +248,9 @@ export default function LandingPage() {
             No subscription fees for your first 5 invoices. Then, just ₦5,000/month for unlimited everything. Nigerian pricing for the Nigerian hustle.
           </p>
           <div className="flex justify-center gap-6">
-            <button className="px-10 py-5 bg-primary text-white rounded-full font-bold text-xl shadow-xl hover:-translate-y-1 transition-all">
+            <Link href="/register" className="px-10 py-5 bg-primary text-white rounded-full font-bold text-xl shadow-xl hover:-translate-y-1 transition-all">
               Create Your First Invoice
-            </button>
+            </Link>
           </div>
         </div>
       </section>
