@@ -20,6 +20,38 @@ export default function CreateInvoicePage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [magicInput, setMagicInput] = useState("");
+  const [isParsingAI, setIsParsingAI] = useState(false);
+
+  const handleMagicInputSubmit = async () => {
+    if (!magicInput.trim()) return;
+    setIsParsingAI(true);
+    setError("");
+    try {
+      const res = await fetch("/api/ai/parse-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: magicInput })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      if (data.parsed) {
+        setFormData(prev => ({
+          ...prev,
+          clientName: data.parsed.clientName || prev.clientName,
+          serviceDescription: data.parsed.serviceDetails || prev.serviceDescription,
+          amount: data.parsed.amount?.toString() || prev.amount,
+          dueDate: data.parsed.dueDate || prev.dueDate
+        }));
+        setMagicInput(""); // clear on success
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsParsingAI(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({
@@ -101,12 +133,28 @@ export default function CreateInvoicePage() {
                   id="ai-input" 
                   placeholder="e.g. 'I'm charging 50k for a 3-hour photography session for Kola next Tuesday'" 
                   rows={3}
+                  value={magicInput}
+                  onChange={(e) => setMagicInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleMagicInputSubmit();
+                    }
+                  }}
                 ></textarea>
-                <button className="absolute bottom-4 right-4 w-12 h-12 flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-fixed hover:scale-105 transition-transform active:scale-95 shadow-lg">
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
+                <button 
+                  onClick={handleMagicInputSubmit}
+                  disabled={isParsingAI || !magicInput.trim()}
+                  className="absolute bottom-4 right-4 w-12 h-12 flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-fixed hover:scale-105 transition-all active:scale-95 shadow-lg disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed"
+                >
+                  {isParsingAI ? (
+                    <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                  ) : (
+                    <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                  )}
                 </button>
               </div>
-              <p className="mt-4 text-xs text-primary-fixed/60 font-medium">Coming Soon: Powered by AI to extract client, amount, and details instantly.</p>
+              <p className="mt-4 text-xs text-primary-fixed/60 font-medium">Powered by Gemini. Hit Enter to autofill your invoice instantly.</p>
             </div>
             {/* Aesthetic Background Texture */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary-container to-primary rounded-full blur-3xl -mr-32 -mt-32 opacity-50"></div>
