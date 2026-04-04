@@ -21,20 +21,20 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Invalid credentials");
         }
-        
+
         await dbConnect();
-        
+
         const user = await User.findOne({ email: credentials.email });
         if (!user || !user.password) {
           throw new Error("Invalid credentials");
         }
-        
+
         const isPasswordCorrect = await bcrypt.compare(credentials.password, user.password);
-        
+
         if (!isPasswordCorrect) {
           throw new Error("Invalid credentials");
         }
-        
+
         return {
           id: user._id.toString(),
           name: user.name,
