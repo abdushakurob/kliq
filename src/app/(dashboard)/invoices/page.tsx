@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-export default function InvoicesListPage() {
+function InvoicesListContent() {
   const searchParams = useSearchParams();
   const clientFilter = searchParams.get("client");
   
@@ -224,5 +224,17 @@ export default function InvoicesListPage() {
         )}
       </div>
     </>
+  );
+}
+
+export default function InvoicesListPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[400px]">
+        <span className="material-symbols-outlined animate-spin text-primary text-4xl">progress_activity</span>
+      </div>
+    }>
+      <InvoicesListContent />
+    </Suspense>
   );
 }

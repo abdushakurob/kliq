@@ -208,7 +208,7 @@ export default function EarningsPage() {
                    </div>
                    <div>
                      <p className="font-bold text-on-surface">{inv.clientId?.name || "Unknown Client"}</p>
-                     <p className="text-sm text-on-surface-variant">{inv.serviceDetails || "Architecture Service"}</p>
+                     <p className="text-sm text-on-surface-variant">{inv.serviceDescription || "Creative Service"}</p>
                    </div>
                  </div>
                  <div className="text-right">
