@@ -80,16 +80,39 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
 
              {/* Ledger */}
              <div className="border border-surface-container-highest/30 rounded-2xl p-6 bg-surface-container-low/30 mb-8">
-                <div className="flex justify-between items-center border-b border-surface-container-highest/20 pb-4 mb-4">
-                  <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Description</span>
-                  <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Amount</span>
+                <div className="grid grid-cols-12 gap-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant border-b border-surface-container-highest/20 pb-4 mb-4 px-1">
+                   <span className="col-span-7">Description</span>
+                   <span className="col-span-2 text-center">Qty</span>
+                   <span className="col-span-3 text-right">Amount</span>
                 </div>
-                <div className="flex justify-between items-start">
-                 <h2 className="text-xl font-bold font-headline text-on-surface max-w-[70%]">{serialized.serviceDescription}</h2>
-                  <p className="text-xl font-bold font-headline text-on-surface">₦ {Number(serialized.amount).toLocaleString()}</p>
-                </div>
+                
+                {serialized.items && serialized.items.length > 0 ? (
+                  serialized.items.map((it: any, i: number) => (
+                   <div key={i} className="grid grid-cols-12 gap-2 py-3 px-1 hover:bg-surface-container-lowest/20 rounded-xl transition-all">
+                      <div className="col-span-7">
+                         <p className="font-bold text-on-surface leading-tight">{it.description || 'Service Description'}</p>
+                         <p className="text-[10px] text-on-surface-variant font-bold mt-1">₦ {Number(it.unitPrice || 0).toLocaleString()} / unit</p>
+                      </div>
+                      <div className="col-span-2 text-center flex items-center justify-center">
+                         <span className="font-bold text-on-surface-variant bg-surface-container-highest/30 px-2 py-0.5 rounded-lg text-xs">×{it.quantity}</span>
+                      </div>
+                      <div className="col-span-3 text-right flex items-center justify-end">
+                         <p className="font-black text-on-surface">₦ {(Number(it.unitPrice || 0) * Number(it.quantity || 1)).toLocaleString()}</p>
+                      </div>
+                   </div>
+                  ))
+                ) : (
+                 <div className="flex justify-between items-start py-2">
+                   <h2 className="text-xl font-bold font-headline text-on-surface max-w-[70%]">{serialized.serviceDescription}</h2>
+                    <p className="text-xl font-bold font-headline text-on-surface">₦ {Number(serialized.amount).toLocaleString()}</p>
+                 </div>
+                )}
+
                 {serialized.notesTerms && (
-                  <p className="text-sm text-on-surface-variant mt-4 italic">Note: {serialized.notesTerms}</p>
+                  <div className="mt-6 pt-6 border-t border-surface-container-highest/10">
+                     <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Invoice Note</p>
+                     <p className="text-sm text-on-surface-variant italic leading-relaxed">&quot;{serialized.notesTerms}&quot;</p>
+                  </div>
                 )}
              </div>
 

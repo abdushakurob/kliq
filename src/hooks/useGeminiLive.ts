@@ -9,18 +9,28 @@ export function useGeminiLive(relayUrl: string, systemPrompt: string) {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [transcript, setTranscript] = useState(""); // NEW: Continuous transcript
   const [cleanTranscript, setCleanTranscript] = useState(""); // NEW: Transcript without JSON
+  const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const setupCompleteRef = useRef(false);
   const nextPlayTimeRef = useRef(0);
 
   const stopSession = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    setVolume(0);
+
     processorRef.current?.disconnect();
     processorRef.current = null;
+    analyserRef.current?.disconnect();
+    analyserRef.current = null;
 
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
@@ -37,13 +47,37 @@ export function useGeminiLive(relayUrl: string, systemPrompt: string) {
     setupCompleteRef.current = false;
     nextPlayTimeRef.current = 0;
 
-    setIsConnecting(false); // NEW
+    setIsConnecting(false);
     setIsListening(false);
     setIsProcessing(false);
   }, []);
 
   function startMicStream(audioContext: AudioContext, stream: MediaStream, socket: WebSocket) {
     const source = audioContext.createMediaStreamSource(stream);
+    
+    // Volume Analyser
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    analyserRef.current = analyser;
+    source.connect(analyser);
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const updateVolume = () => {
+      if (!setupCompleteRef.current) return;
+      analyser.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i];
+      }
+      const average = sum / bufferLength;
+      setVolume(average); 
+      animationFrameRef.current = requestAnimationFrame(updateVolume);
+    };
+    updateVolume();
+
+    // Script Processor for PCM16 conversion
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
     processorRef.current = processor;
 
@@ -199,5 +233,5 @@ export function useGeminiLive(relayUrl: string, systemPrompt: string) {
     }
   }, [relayUrl, systemPrompt, stopSession]);
 
-  return { isConnecting, isListening, isProcessing, messages, transcript: cleanTranscript, rawTranscript: transcript, error, startSession, stopSession };
+  return { isConnecting, isListening, isProcessing, messages, transcript: cleanTranscript, rawTranscript: transcript, error, volume, startSession, stopSession };
 }

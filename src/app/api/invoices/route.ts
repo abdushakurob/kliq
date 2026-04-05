@@ -18,14 +18,28 @@ export async function POST(req: Request) {
     const { 
       clientName, 
       clientEmail, 
+      items, // Multi-item support
       serviceDescription, 
-      amount, 
+      amount, // Total amount
       dueDate, 
       notesTerms,
       status 
     } = body;
 
-    if (!clientName || !serviceDescription || !amount || !dueDate) {
+    // Server-side validation & total calculation
+    let calculatedAmount = 0;
+    let finalServiceDescription = serviceDescription;
+
+    if (items && Array.isArray(items) && items.length > 0) {
+      calculatedAmount = items.reduce((sum: number, item: any) => sum + (Number(item.unitPrice) * Number(item.quantity || 1)), 0);
+      if (!finalServiceDescription) {
+        finalServiceDescription = items[0].description + (items.length > 1 ? ` (+ ${items.length - 1} more items)` : "");
+      }
+    } else {
+      calculatedAmount = Number(amount);
+    }
+
+    if (!clientName || !finalServiceDescription || !calculatedAmount || !dueDate) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -56,10 +70,10 @@ export async function POST(req: Request) {
         const squad = new SquadProvider();
         const linkRes = await squad.createPaymentLink({
           invoiceId: invoiceNumber,
-          amount: Number(amount),
+          amount: Number(calculatedAmount),
           customerName: clientName,
           customerEmail: clientEmail,
-          description: serviceDescription
+          description: finalServiceDescription
         });
         paymentLinkId = linkRes.paymentLinkId;
         paymentLinkUrl = linkRes.paymentLinkUrl;
@@ -73,8 +87,9 @@ export async function POST(req: Request) {
       userId,
       clientId: client._id,
       invoiceNumber,
-      serviceDescription,
-      amount: Number(amount),
+      items: items || [],
+      serviceDescription: finalServiceDescription,
+      amount: Number(calculatedAmount),
       dueDate: new Date(dueDate),
       notesTerms,
       status: status || "draft",

@@ -14,10 +14,10 @@ export default function CreateInvoicePage() {
   const [formData, setFormData] = useState({
     clientName: "",
     clientEmail: "",
-    serviceDescription: "",
-    amount: "",
+    items: [{ description: "", quantity: 1, unitPrice: "" }],
     dueDate: "",
     notesTerms: "",
+    amount: "0" // Total summary
   });
 
   const [loading, setLoading] = useState(false);
@@ -27,12 +27,7 @@ export default function CreateInvoicePage() {
     { role: "assistant", content: `Hello ${session?.user?.name?.split(' ')[0] || ''}! Ready to bill for your next project? Just tell me what you did and for whom.` }
   ]);
   const [isParsingAI, setIsParsingAI] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [isLiveMode, setIsLiveMode] = useState(false);
-
-  // Auto-scroll logic for transcript
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-
 
   // Gemini Live Hook
   const {
@@ -42,6 +37,7 @@ export default function CreateInvoicePage() {
     transcript: liveTranscript,
     rawTranscript,
     error: liveError,
+    volume, // Real-time volume for waveform
     startSession: startLiveSession,
     stopSession: stopLiveSession
   } = useGeminiLive(
@@ -49,43 +45,49 @@ export default function CreateInvoicePage() {
     `You are the Kliq Invoice Assistant, a professional and supportive advisor. 
     Speak in clear, professional Standard Nigerian English. Use a very respectful, encouraging, and business-focused tone. USE NIGERIAN ACCENT TO SPEAK.
 
-    GOAL: Gather the Client Name, Client Email (optional), Service Details, and Amount to generate an invoice.
+    GOAL: Gather Client Name, Client Email (optional), and one or more ITEMS.
     
     IMPORTANT RULES:
-    1. The names mentioned by the user are the CLIENT'S names or BUSINESS names (the person/entity being billed). You do NOT need the user's name.
-    2. Suggest professional descriptions: If the user says something vague like "I did some photography", suggest a better line item like "Professional Event Photography & Post-Processing".
-    3. Email is optional: If they provide a client email, capture it. If not, it's fine, but feel free to ask "Would you like to add their email to send this directly?"
-    4. ONLY discuss pricing strategies if the user explicitly asks for help deciding what to charge.
-    5. Convert Dollars (e.g. "$100") to Naira at 1,500 NGN/USD.
+    1. SERVICE VS PRODUCT: Identify if the user is billing for a SERVICE (e.g. "Photography") or ITEMS (e.g. "10 Prints"). 
+       - For services, quantity defaults to 1.
+       - For stuff/products, extract the quantity and unit price.
+    2. CLIENT FOCUS: The names mentioned are the CLIENT'S names. You do NOT need the user's name.
+    3. SUGGESTIONS: Suggest professional descriptions (e.g. "Brand Identity Design" instead of "Logo").
+    4. Convert Dollars to Naira at 1,500 NGN/USD.
     
-    TONE: 
-    - Conversational, professional, and Voice-first.
-    - NEVER read code, JSON, brackets, or markdown out loud.
-    - Say "I've updated the form for you" once you have the details.
+    TONE: Conversational, professional, and Voice-first. Say "I've updated the items list for you" once you have new details.
 
     OUTPUT FORMAT:
-    When you have collected details, SILENTLY append this JSON code block at the very end of your response. Do not read it:
+    SILENTLY append this JSON code block at the end of your response. Do not read it:
     \`\`\`json
     {
       "clientName": "...",
       "clientEmail": "...",
-      "serviceDetails": "...",
-      "amount": 0,
+      "items": [
+        { "description": "...", "quantity": 1, "unitPrice": 0 }
+      ],
       "dueDate": "YYYY-MM-DD"
     }
     \`\`\``
   );
 
   // Auto-scroll logic for transcript
+  const scrollRef = React.useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, liveTranscript, liveMessages]);
 
-  // Transfer Live Errors to UI
+  // Transfer Live Errors to UI (Friendly Client-side errors)
   useEffect(() => {
-    if (liveError) setError(liveError);
+    if (liveError) {
+      if (liveError.includes("Relay Error") || liveError.includes("WebSocket")) {
+         setError("Establishing secure line failed. I'm unable to connect to the AI server right now. Please try again later.");
+      } else {
+         setError("Connection lost. Please check your data connection.");
+      }
+    }
   }, [liveError]);
 
   // Sync Live Messages & Extract JSON Background
@@ -95,27 +97,34 @@ export default function CreateInvoicePage() {
       setMessages(prev => [...prev, lastLive]);
     }
 
-    // Scan all live messages or the raw transcript for form updates
     if (rawTranscript) {
-      // Look for ```json ... ``` or just a raw object containing "clientName"
       const jsonMatch = rawTranscript.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
         || rawTranscript.match(/\{[\s\S]*?"clientName"[\s\S]*?\}/i);
 
       if (jsonMatch) {
         try {
-          // Parse the found block (jsonMatch[1] if markdown, jsonMatch[0] if raw braces)
           const jsonString = jsonMatch[1] ? jsonMatch[1] : jsonMatch[0];
           const parsed = JSON.parse(jsonString);
 
-          if (parsed.clientName || parsed.serviceDetails || parsed.amount) {
-            setFormData(f => ({
-              ...f,
-              clientName: parsed.clientName || f.clientName,
-              clientEmail: parsed.clientEmail || f.clientEmail,
-              serviceDescription: parsed.serviceDetails || f.serviceDescription,
-              amount: parsed.amount?.toString() || f.amount,
-              dueDate: parsed.dueDate || f.dueDate
-            }));
+          if (parsed.clientName || parsed.items) {
+            setFormData(f => {
+              const newItems = parsed.items ? parsed.items.map((it: any) => ({
+                 description: it.description || "",
+                 quantity: it.quantity || 1,
+                 unitPrice: it.unitPrice?.toString() || ""
+              })) : f.items;
+
+              const total = newItems.reduce((sum: number, it: any) => sum + (Number(it.unitPrice) * Number(it.quantity)), 0);
+
+              return {
+                ...f,
+                clientName: parsed.clientName || f.clientName,
+                clientEmail: parsed.clientEmail || f.clientEmail,
+                items: newItems,
+                dueDate: parsed.dueDate || f.dueDate,
+                amount: total.toString()
+              };
+            });
           }
         } catch (e) { }
       }
@@ -129,63 +138,87 @@ export default function CreateInvoicePage() {
 
   const handleMagicInputSubmit = async () => {
     if (!magicInput.trim()) return;
-
-    const userText = magicInput.trim();
-    const newHistory = [...messages, { role: "user", content: userText }];
-    setMessages(newHistory);
-    setMagicInput("");
     setIsParsingAI(true);
     setError("");
 
     try {
-      let historyToSend = newHistory;
-      // Filter out ANY model/assistant messages at the absolute beginning of the array
-      while (historyToSend.length > 0 && historyToSend[0].role === "assistant") {
-        historyToSend = historyToSend.slice(1);
-      }
-
-      const historyPayload = historyToSend.map(m => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }]
-      }));
-
       const res = await fetch("/api/ai/parse-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: historyPayload })
+        body: JSON.stringify({
+          messages: [
+            ...messages.map(m => ({
+              role: m.role === "assistant" ? "model" : "user",
+              parts: [{ text: m.content }]
+            })),
+            { role: "user", parts: [{ text: magicInput }] }
+          ]
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
+      const data = await res.json();
       if (data.reply) {
-        setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+        setMessages(prev => [...prev, 
+          { role: "user", content: magicInput },
+          { role: "assistant", content: data.reply }
+        ]);
+        setMagicInput("");
       }
 
       if (data.parsed) {
-        setFormData(prev => ({
-          ...prev,
-          clientName: data.parsed.clientName || prev.clientName,
-          clientEmail: data.parsed.clientEmail || prev.clientEmail,
-          serviceDescription: data.parsed.serviceDetails || prev.serviceDescription,
-          amount: data.parsed.amount?.toString() || prev.amount,
-          dueDate: data.parsed.dueDate || prev.dueDate
-        }));
+        const p = data.parsed;
+        setFormData(f => {
+          const newItems = p.items ? p.items.map((it: any) => ({
+            description: it.description || "",
+            quantity: it.quantity || 1,
+            unitPrice: it.unitPrice?.toString() || ""
+          })) : f.items;
+
+          const total = newItems.reduce((sum: number, it: any) => sum + (Number(it.unitPrice) * Number(it.quantity)), 0);
+
+          return {
+            ...f,
+            clientName: p.clientName || f.clientName,
+            clientEmail: p.clientEmail || f.clientEmail,
+            items: newItems,
+            dueDate: p.dueDate || f.dueDate,
+            amount: total.toString()
+          };
+        });
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError("AI was unable to process that. Please try standard input.");
     } finally {
       setIsParsingAI(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
+  const addItem = () => {
+    setFormData(f => ({
+      ...f,
+      items: [...f.items, { description: "", quantity: 1, unitPrice: "" }]
     }));
   };
 
-  const handleCreateInvoice = async (status: "draft" | "sent") => {
+  const removeItem = (index: number) => {
+    if (formData.items.length <= 1) return;
+    setFormData(f => {
+      const newItems = f.items.filter((_, i) => i !== index);
+      const total = newItems.reduce((sum: number, it: any) => sum + (Number(it.unitPrice) * Number(it.quantity)), 0);
+      return { ...f, items: newItems, amount: total.toString() };
+    });
+  };
+
+  const updateItem = (index: number, field: string, value: any) => {
+    setFormData(f => {
+      const newItems = [...f.items];
+      newItems[index] = { ...newItems[index], [field]: value };
+      const total = newItems.reduce((sum: number, it: any) => sum + (Number(it.unitPrice) * Number(it.quantity)), 0);
+      return { ...f, items: newItems, amount: total.toString() };
+    });
+  };
+
+  const handleSubmit = async (status: "draft" | "sent") => {
     setLoading(true);
     setError("");
 
@@ -196,10 +229,8 @@ export default function CreateInvoicePage() {
         body: JSON.stringify({ ...formData, status }),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to create invoice");
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create invoice");
 
       router.push("/invoices");
     } catch (err: any) {
@@ -207,6 +238,24 @@ export default function CreateInvoicePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const VoiceWaveform = ({ volume }: { volume: number }) => {
+    const bars = [0.4, 0.7, 1.0, 0.8, 0.5, 0.9, 0.6, 0.4];
+    return (
+      <div className="flex items-center gap-1 h-8">
+        {bars.map((base, i) => (
+          <div
+            key={i}
+            className="w-1 bg-primary rounded-full transition-all duration-75"
+            style={{ 
+              height: `${Math.max(4, base * volume * 0.8)}px`,
+              opacity: isLiveListening ? 1 : 0.3
+            }}
+          />
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -237,7 +286,7 @@ export default function CreateInvoicePage() {
         <section className="lg:col-span-7 space-y-8">
 
           {error && (
-            <div className="p-4 bg-error-container text-on-error-container rounded-xl font-medium">
+            <div className="p-4 bg-error-container text-on-error-container rounded-xl font-medium border border-error/20 animate-in fade-in slide-in-from-top-2">
               {error}
             </div>
           )}
@@ -263,10 +312,10 @@ export default function CreateInvoicePage() {
                     }}
                     className={`text-[10px] uppercase tracking-widest font-black px-3 py-1 rounded-full transition-all ${isLiveMode ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-white/10 text-white hover:bg-white/20'}`}
                   >
-                    {isLiveMode ? 'Exit Session' : 'Switch to Voice'}
+                    {isLiveMode ? 'End Call' : 'Switch to Voice'}
                   </button>
-                  <div className={`${isLiveMode || isListening ? 'bg-secondary-fixed' : 'bg-surface-container-highest/20'} text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full transition-colors`}>
-                    {isLiveMode ? 'Live Relay' : isListening ? 'Listening' : 'Ready'}
+                  <div className={`${isLiveListening || isConnecting ? 'bg-secondary-fixed' : 'bg-surface-container-highest/20'} text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full transition-colors`}>
+                    {isConnecting ? 'Secure Line...' : isLiveListening ? 'Listening' : 'Ready'}
                   </div>
                 </div>
               </div>
@@ -277,17 +326,15 @@ export default function CreateInvoicePage() {
                 className="mb-6 space-y-4 max-h-[500px] overflow-y-auto pr-2 min-h-[100px] scroll-smooth selection:bg-white/20 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-white/5 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/30"
               >
                 {isLiveMode ? (
-                  // BIG BOLD Live Transcript View
                   <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                     <div className="p-8">
                       <div className="text-4xl md:text-5xl font-black leading-tight text-white italic transition-all duration-300">
-                        {/* Split transcript into words for trailing highlight effect */}
                         {liveTranscript.split(" ").map((word, index, arr) => {
                           const isRecent = index >= arr.length - 7;
                           return (
                             <span
                               key={index}
-                              className={`inline-block mr-[0.3em] transition-colors duration-500 ${isRecent ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/40'}`}
+                              className={`inline-block mr-[0.3em] transition-colors duration-500 ${isRecent ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,1)]' : 'text-white/40'}`}
                             >
                               {word}
                             </span>
@@ -296,12 +343,12 @@ export default function CreateInvoicePage() {
                         {isLiveListening && (
                           <span className="inline-block w-4 h-[1em] bg-secondary-fixed ml-2 animate-pulse align-middle"></span>
                         )}
-                        {!liveTranscript && "Listening..."}
+                        {!liveTranscript && !isConnecting && "I'm listening..."}
+                        {!liveTranscript && isConnecting && "Establishing secure line..."}
                       </div>
                     </div>
                   </div>
                 ) : (
-                  // Classic Chat Bubbles
                   messages.map((msg, i) => (
                     <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`p-4 rounded-3xl max-w-[85%] text-sm font-medium leading-relaxed ${msg.role === 'user' ? 'bg-secondary-fixed text-on-secondary-fixed shadow-lg rounded-tr-sm' : 'bg-white/10 text-white rounded-tl-sm backdrop-blur-md border border-white/5'}`}>
@@ -338,12 +385,10 @@ export default function CreateInvoicePage() {
                         <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
                       </button>
                     ) : isConnecting ? (
-                      // Connecting spinner — shown between click and setupComplete
                       <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center">
                         <span className="material-symbols-outlined text-4xl text-white animate-spin">progress_activity</span>
                       </div>
                     ) : (
-                      // Active/stop button
                       <div className="relative flex items-center justify-center">
                         <div className="absolute w-24 h-24 bg-secondary-fixed/20 rounded-full animate-ping"></div>
                         <button
@@ -356,14 +401,17 @@ export default function CreateInvoicePage() {
                       </div>
                     )}
 
-                    <p className="text-sm font-bold text-secondary-fixed-dim animate-pulse text-center">
-                      {isConnecting ? 'Connecting to Kliq AI...' : isLiveListening ? 'Kliq is listening in real-time...' : 'Click to start Live Audio convo'}
-                    </p>
+                    <div className="flex flex-col items-center gap-2">
+                       {isLiveListening && <VoiceWaveform volume={volume} />}
+                       <p className="text-sm font-bold text-secondary-fixed-dim animate-pulse text-center">
+                          {isConnecting ? 'Establishing secure line...' : isLiveListening ? 'Connected & Listening' : 'Click to start conversation'}
+                       </p>
+                    </div>
                   </div>
                 ) : (
                   <>
                     <textarea
-                      className="w-full bg-white/10 border-0 rounded-2xl p-4 pr-32 text-white placeholder:text-white/40 focus:ring-2 focus:ring-secondary-fixed transition-all text-sm resize-none font-body shadow-inner"
+                      className="w-full bg-white/10 border-0 rounded-2xl p-4 pr-32 text-white placeholder:text-white/40 focus:ring-2 focus:ring-secondary-fixed transition-all text-sm resize-none font-body shadow-inner px-6"
                       id="ai-input"
                       placeholder="Tell Kliq about your gig..."
                       value={magicInput}
@@ -389,59 +437,128 @@ export default function CreateInvoicePage() {
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary-container to-primary rounded-full blur-3xl -mr-32 -mt-32 opacity-50"></div>
           </div>
 
-          {/* Manual Form */}
-          <div className="p-8 rounded-3xl bg-surface-container-lowest shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center gap-2 mb-8">
-              <div className="h-px flex-1 bg-surface-container-highest"></div>
-              <span className="text-xs font-bold text-on-surface-variant tracking-widest uppercase px-3">or fill manually</span>
-              <div className="h-px flex-1 bg-surface-container-highest"></div>
+          {/* Manual Form / Items Review */}
+          <div className="p-8 rounded-3xl bg-surface-container-lowest shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-surface-container">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-black text-on-surface font-headline">Review Details</h3>
+              <div className="h-px flex-1 bg-surface-container mx-4"></div>
             </div>
-            <form className="space-y-6">
+
+            <div className="space-y-8">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Client Name</label>
-                  <input name="clientName" value={formData.clientName} onChange={handleChange} className="w-full h-14 px-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium" placeholder="E.g. Kolawole Adedeji" type="text" />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Client Name</label>
+                  <input 
+                    value={formData.clientName} 
+                    onChange={(e) => setFormData({...formData, clientName: e.target.value})} 
+                    className="w-full h-14 px-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium" 
+                    placeholder="E.g. Kolawole Adedeji" type="text" 
+                  />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Email Address</label>
-                  <input name="clientEmail" value={formData.clientEmail} onChange={handleChange} className="w-full h-14 px-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium" placeholder="client@company.com" type="email" />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Email Address</label>
+                  <input 
+                    value={formData.clientEmail} 
+                    onChange={(e) => setFormData({...formData, clientEmail: e.target.value})} 
+                    className="w-full h-14 px-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium" 
+                    placeholder="client@company.com" type="email" 
+                  />
+                </div>
+              </div>
+
+              {/* Multi-Item Form */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Invoice Items</label>
+                  <button onClick={addItem} type="button" className="text-xs font-bold text-primary flex items-center gap-1 hover:brightness-110 px-3 py-1 bg-primary/5 rounded-full">
+                    <span className="material-symbols-outlined text-sm">add_circle</span>
+                    Add Item
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {formData.items.map((item, idx) => (
+                    <div key={idx} className="p-4 bg-surface-container-low border border-surface-container rounded-2xl relative group/item hover:border-primary/30 transition-colors">
+                      <div className="grid grid-cols-12 gap-4">
+                        <div className="col-span-12 md:col-span-6">
+                           <input
+                            type="text"
+                            value={item.description}
+                            onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                            placeholder="Service or Product name"
+                            className="w-full p-2 bg-transparent border-b border-surface-container text-sm outline-none focus:border-primary transition-all pb-1 translate-y-1"
+                          />
+                        </div>
+                        <div className="col-span-4 md:col-span-2">
+                           <label className="text-[8px] font-bold text-on-surface-variant uppercase block mb-1">Qty</label>
+                           <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
+                            className="w-full p-2 bg-transparent border-b border-surface-container text-sm outline-none focus:border-primary transition-all font-bold"
+                          />
+                        </div>
+                        <div className="col-span-6 md:col-span-3">
+                           <label className="text-[8px] font-bold text-on-surface-variant uppercase block mb-1">Unit Price (₦)</label>
+                           <input
+                            type="number"
+                            value={item.unitPrice}
+                            onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
+                            placeholder="0"
+                            className="w-full p-2 bg-transparent border-b border-surface-container text-sm outline-none focus:border-primary transition-all font-bold"
+                          />
+                        </div>
+                        <div className="col-span-2 md:col-span-1 flex items-center justify-end">
+                          {formData.items.length > 1 && (
+                            <button onClick={() => removeItem(idx)} type="button" className="text-on-surface-variant hover:text-error transition-colors p-2">
+                              <span className="material-symbols-outlined text-lg">delete</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Due Date</label>
+                  <input 
+                    value={formData.dueDate} 
+                    onChange={(e) => setFormData({...formData, dueDate: e.target.value})} 
+                    className="w-full h-14 px-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium" type="date" 
+                  />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Total (NGN)</label>
+                   <div className="h-14 px-5 rounded-2xl bg-surface-container-high border border-surface-container flex items-center font-black text-primary text-xl">
+                      ₦ {Number(formData.amount).toLocaleString()}
+                   </div>
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Service Description</label>
-                <input name="serviceDescription" value={formData.serviceDescription} onChange={handleChange} className="w-full h-14 px-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium" placeholder="E.g. 3-hour Outdoor Photography" type="text" />
+                <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Notes / Terms</label>
+                <textarea 
+                  value={formData.notesTerms} 
+                  onChange={(e) => setFormData({...formData, notesTerms: e.target.value})} 
+                  className="w-full p-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium resize-none" 
+                  placeholder="Include bank details or specific terms..." rows={3}></textarea>
               </div>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Amount (NGN)</label>
-                  <div className="relative">
-                    <span className="absolute left-5 top-1/2 -translate-y-1/2 font-bold text-on-surface-variant">₦</span>
-                    <input name="amount" value={formData.amount} onChange={handleChange} className="w-full h-14 pl-10 pr-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-bold" placeholder="50000" type="number" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Due Date</label>
-                  <input name="dueDate" value={formData.dueDate} onChange={handleChange} className="w-full h-14 px-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium" type="date" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wide ml-1">Notes / Terms</label>
-                <textarea name="notesTerms" value={formData.notesTerms} onChange={handleChange} className="w-full p-5 rounded-2xl bg-surface-container-high border-0 focus:ring-2 focus:ring-primary transition-all font-medium resize-none" placeholder="Include bank details or specific terms..." rows={3}></textarea>
-              </div>
-            </form>
+            </div>
           </div>
 
           <div className="flex gap-4">
             <button
-              onClick={() => handleCreateInvoice("sent")}
+              onClick={() => handleSubmit("sent")}
               disabled={loading}
-              className="flex-1 h-16 rounded-2xl bg-secondary-fixed text-on-secondary-fixed font-bold text-lg flex items-center justify-center gap-3 hover:shadow-xl hover:shadow-secondary-fixed/20 transition-all active:scale-[0.98] disabled:opacity-70"
+              className="flex-1 h-16 rounded-2xl bg-secondary-fixed text-on-secondary-fixed font-bold text-lg flex items-center justify-center gap-3 hover:shadow-xl hover:shadow-secondary-fixed/20 transition-all active:scale-[0.98] disabled:opacity-70 group"
             >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
+              <span className="material-symbols-outlined group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
               {loading ? "Sending..." : "Create & Send Invoice"}
             </button>
             <button
-              onClick={() => handleCreateInvoice("draft")}
+              onClick={() => handleSubmit("draft")}
               disabled={loading}
               className="px-8 h-16 rounded-2xl bg-surface-container-highest text-primary font-bold hover:bg-surface-dim transition-colors disabled:opacity-70"
             >
@@ -454,7 +571,7 @@ export default function CreateInvoicePage() {
         <section className="lg:col-span-5 sticky top-8">
           <div className="bg-white rounded-[2rem] shadow-2xl shadow-primary/5 overflow-hidden border border-surface-container-highest/50 relative">
             {/* Preview Header Decor */}
-            <div className="h-2 bg-gradient-to-r from-primary via-primary-container to-secondary-fixed"></div>
+            <div className="h-2 bg-gradient-to-r from-primary via-primary-container to-secondary-fixed shadow-sm"></div>
             <div className="p-10 relative z-10">
               <div className="flex justify-between items-start mb-12">
                 <div>
@@ -466,55 +583,72 @@ export default function CreateInvoicePage() {
                 </div>
                 <div className="text-right">
                   <h5 className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Invoice Preview</h5>
-                  <div className="bg-secondary-container/30 text-on-secondary-container text-[10px] font-bold px-2 py-1 rounded-full inline-block">DRAFT</div>
+                  <div className="bg-secondary-container/30 text-on-secondary-container text-[10px] font-bold px-3 py-1 rounded-full inline-block border border-on-secondary-container/10">DRAFT</div>
                 </div>
               </div>
+
               <div className="space-y-8">
-                <div className="flex justify-between items-end border-b border-surface-container py-4">
+                <div className="flex justify-between items-end border-b border-surface-container pb-6">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Bill To</p>
                     <p className="text-lg font-bold">{formData.clientName || 'Client Name'}</p>
-                    <p className="text-sm text-on-surface-variant">{formData.clientEmail || ''}</p>
+                    <p className="text-sm text-on-surface-variant leading-none">{formData.clientEmail || ''}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Issue Date</p>
                     <p className="text-sm font-bold">{new Date().toLocaleDateString('en-GB')}</p>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-on-surface-variant border-b border-surface-container pb-2">
-                    <span>Description</span>
-                    <span>Amount</span>
-                  </div>
-                  <div className="flex justify-between items-start">
-                    <div className="max-w-[70%]">
-                      <p className="font-bold text-primary font-headline">{formData.serviceDescription || 'Service...'}</p>
+
+                <div className="space-y-5">
+                   <div className="grid grid-cols-12 text-[10px] font-black uppercase tracking-widest text-on-surface-variant border-b border-surface-container pb-2 px-1">
+                      <span className="col-span-7">Description</span>
+                      <span className="col-span-2 text-center">Qty</span>
+                      <span className="col-span-3 text-right">Amount</span>
+                   </div>
+                   
+                   {formData.items.map((it, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-2 text-sm">
+                       <div className="col-span-7">
+                          <p className="font-bold text-on-surface">{it.description || 'Service Description'}</p>
+                          <p className="text-[10px] text-on-surface-variant font-bold">₦ {Number(it.unitPrice || 0).toLocaleString()} per unit</p>
+                       </div>
+                       <div className="col-span-2 text-center flex items-center justify-center">
+                          <span className="font-bold text-on-surface-variant">×{it.quantity}</span>
+                       </div>
+                       <div className="col-span-3 text-right flex items-center justify-end">
+                          <p className="font-black text-on-surface">₦ {(Number(it.unitPrice || 0) * Number(it.quantity || 1)).toLocaleString()}</p>
+                       </div>
                     </div>
-                    <p className="font-bold text-primary font-headline">₦ {Number(formData.amount || 0).toLocaleString()}</p>
-                  </div>
+                   ))}
                 </div>
-                <div className="pt-8 space-y-3">
-                  <div className="flex justify-between pt-4 border-t-2 border-primary/5">
-                    <span className="text-lg font-black text-primary font-headline">Total</span>
+
+                <div className="pt-8 border-t-2 border-primary/5 space-y-4">
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-lg font-black text-primary font-headline">Total Due</span>
                     <div className="text-right">
-                      <span className="text-2xl font-black text-primary tracking-tight font-headline">₦ {Number(formData.amount || 0).toLocaleString()}</span>
-                      <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Due by {formData.dueDate || '...'}</p>
+                      <span className="text-3xl font-black text-primary tracking-tighter font-headline">₦ {Number(formData.amount || 0).toLocaleString()}</span>
+                      <div className="flex items-center gap-1 mt-1 justify-end text-error">
+                         <span className="material-symbols-outlined text-[10px]">schedule</span>
+                         <p className="text-[10px] font-bold uppercase tracking-tighter">Pay by {formData.dueDate || 'Immediate'}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="mt-12 p-6 rounded-2xl bg-surface-container-low border-l-4 border-secondary-fixed">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-2">Designer&apos;s Note</p>
-                  <p className="text-xs text-on-surface italic leading-relaxed">&quot;{formData.notesTerms || '...'}&quot;</p>
+
+                <div className="mt-12 p-6 rounded-[2rem] bg-surface-container-low border-l-4 border-secondary-fixed shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)]">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-2">Notes & Terms</p>
+                  <p className="text-xs text-on-surface italic leading-relaxed">&quot;{formData.notesTerms || 'Thank you for your business.'}&quot;</p>
                 </div>
               </div>
-              <div className="mt-12 flex justify-center opacity-10 grayscale pointer-events-none absolute bottom-4 w-full left-0 z-0 overflow-hidden">
-                <h4 className="text-[8rem] font-black text-primary tracking-tighter italic select-none">Kliq</h4>
+              <div className="mt-12 flex justify-center opacity-[0.03] grayscale pointer-events-none absolute bottom-4 w-full left-0 z-0 overflow-hidden">
+                <h4 className="text-[10rem] font-black text-primary tracking-tighter italic select-none leading-none">Kliq</h4>
               </div>
             </div>
           </div>
           <p className="text-center mt-6 text-xs text-on-surface-variant font-medium flex items-center justify-center gap-2">
             <span className="material-symbols-outlined text-sm">visibility</span>
-            Real-time preview of your professional invoice
+            Real-time premium preview of your invoice
           </p>
         </section>
       </div>

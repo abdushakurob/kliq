@@ -85,16 +85,35 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               </div>
 
               <div className="space-y-4 mb-16">
-                <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-on-surface-variant border-b border-surface-container pb-3">
-                  <span>Description of Service</span>
-                  <span>Total</span>
+                <div className="grid grid-cols-12 gap-4 text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant border-b border-surface-container pb-4 px-2">
+                  <span className="col-span-12 md:col-span-6">Services/Items</span>
+                  <span className="col-span-4 md:col-span-2 text-center">Qty</span>
+                  <span className="col-span-8 md:col-span-4 text-right">Total</span>
                 </div>
-                <div className="flex justify-between items-start py-2">
-                  <div className="max-w-[70%]">
+                
+                {serialized.items && serialized.items.length > 0 ? (
+                  serialized.items.map((it: any, i: number) => (
+                    <div key={i} className="grid grid-cols-12 gap-4 py-4 px-2 hover:bg-surface-container-lowest/50 rounded-2xl transition-colors">
+                      <div className="col-span-12 md:col-span-6">
+                        <p className="font-bold text-lg font-headline text-on-surface">{it.description || 'Service'}</p>
+                        <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest">₦ {Number(it.unitPrice || 0).toLocaleString()} per unit</p>
+                      </div>
+                      <div className="col-span-4 md:col-span-2 flex items-center justify-center">
+                        <span className="font-headline font-bold text-lg bg-surface-container px-3 py-1 rounded-xl">{it.quantity}</span>
+                      </div>
+                      <div className="col-span-8 md:col-span-4 text-right">
+                        <p className="font-black text-xl font-headline text-primary tracking-tighter">
+                          ₦ {(Number(it.unitPrice || 0) * Number(it.quantity || 1)).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-2 flex justify-between items-start">
                     <p className="font-bold text-lg font-headline">{serialized.serviceDetails || 'Design Services'}</p>
+                    <p className="font-bold text-lg font-headline">₦ {Number(serialized.amount).toLocaleString()}</p>
                   </div>
-                  <p className="font-bold text-lg font-headline">₦ {Number(serialized.amount).toLocaleString()}</p>
-                </div>
+                )}
               </div>
 
               <div className="mt-8 flex justify-between items-end relative z-10">

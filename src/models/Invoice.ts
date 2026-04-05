@@ -2,12 +2,19 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
 
+export interface IInvoiceItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 export interface IInvoice extends Document {
   userId: mongoose.Types.ObjectId;
   clientId: mongoose.Types.ObjectId;
   invoiceNumber: string;
-  serviceDescription: string;
-  amount: number;
+  items: IInvoiceItem[];
+  serviceDescription: string; // Summary description
+  amount: number; // Total amount
   currency: string;
   dueDate: Date;
   status: InvoiceStatus;
@@ -24,6 +31,13 @@ const InvoiceSchema: Schema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     clientId: { type: Schema.Types.ObjectId, ref: "Client", required: true },
     invoiceNumber: { type: String, required: true },
+    items: [
+      {
+        description: { type: String, required: true },
+        quantity: { type: Number, default: 1 },
+        unitPrice: { type: Number, required: true },
+      },
+    ],
     serviceDescription: { type: String, required: true },
     amount: { type: Number, required: true, min: 0 },
     currency: { type: String, default: "NGN" },
