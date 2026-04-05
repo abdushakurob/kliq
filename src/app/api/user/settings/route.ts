@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     }
 
     await dbConnect();
-    const user = await User.findById((session.user as any).id, "name email phone telegramId whatsappId telegramVerificationCode telegramConnectedAt").lean();
+    const user = await User.findById((session.user as any).id, "name email phone telegramHandle whatsappId telegramVerificationCode telegramConnectedAt").lean();
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -37,7 +37,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { name, phone, telegramId, whatsappId } = await req.json();
+    const { name, phone, telegramHandle, whatsappId } = await req.json();
 
     await dbConnect();
     
@@ -46,11 +46,15 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Logic for Telegram Verification Code
-    let verificationCode = user.telegramVerificationCode;
-    if (telegramId && telegramId !== user.telegramId && !user.telegramConnectedAt) {
-      // Generate a new 6-digit code if it doesn't exist or is a new handle
-      verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Logic for Telegram Handle Change & Verification
+    if (telegramHandle && telegramHandle !== user.telegramHandle) {
+      // Clear old connection if handle changes
+      user.telegramHandle = telegramHandle;
+      user.telegramId = undefined; // Clear the numeric ID
+      user.telegramConnectedAt = undefined;
+      
+      // Generate a new 6-digit code
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       user.telegramVerificationCode = verificationCode;
       user.telegramVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     }
@@ -58,9 +62,6 @@ export async function PUT(req: Request) {
     user.name = name || user.name;
     user.phone = phone || user.phone;
     user.whatsappId = whatsappId || user.whatsappId;
-    // We don't update telegramId directly to the numeric ID here, 
-    // it stays as the handle/username until the bot verifies it.
-    user.telegramId = telegramId || user.telegramId; 
 
     await user.save();
 
@@ -70,7 +71,7 @@ export async function PUT(req: Request) {
         name: user.name,
         email: user.email,
         phone: user.phone,
-        telegramId: user.telegramId,
+        telegramHandle: user.telegramHandle,
         whatsappId: user.whatsappId,
         telegramVerificationCode: user.telegramVerificationCode,
         telegramConnected: !!user.telegramConnectedAt

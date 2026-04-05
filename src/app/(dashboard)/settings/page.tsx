@@ -11,7 +11,7 @@ export default function SettingsPage() {
     name: "",
     email: "",
     phone: "",
-    telegramId: "",
+    telegramHandle: "",
     whatsappId: "",
     telegramVerificationCode: "",
     telegramConnected: false
@@ -28,7 +28,7 @@ export default function SettingsPage() {
               name: data.user.name || "",
               email: data.user.email || "",
               phone: data.user.phone || "",
-              telegramId: data.user.telegramId || "",
+              telegramHandle: data.user.telegramHandle || "",
               whatsappId: data.user.whatsappId || "",
               telegramVerificationCode: data.user.telegramVerificationCode || "",
               telegramConnected: !!data.user.telegramConnected
@@ -68,7 +68,7 @@ export default function SettingsPage() {
             name: data.user.name || "",
             email: data.user.email || "",
             phone: data.user.phone || "",
-            telegramId: data.user.telegramId || "",
+            telegramHandle: data.user.telegramHandle || "",
             whatsappId: data.user.whatsappId || "",
             telegramVerificationCode: data.user.telegramVerificationCode || "",
             telegramConnected: !!data.user.telegramConnected
@@ -174,7 +174,7 @@ export default function SettingsPage() {
                           <span className="material-symbols-outlined text-[12px]">verified</span>
                           CONNECTED
                         </span>
-                      ) : formData.telegramId ? (
+                      ) : formData.telegramHandle ? (
                         <span className="text-[10px] text-tertiary flex items-center gap-1 font-black">
                           <span className="material-symbols-outlined text-[12px]">pending</span>
                           VERIFICATION PENDING
@@ -183,14 +183,14 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="text"
-                      name="telegramId"
-                      value={formData.telegramId}
+                      name="telegramHandle"
+                      value={formData.telegramHandle}
                       onChange={handleChange}
                       className={`w-full bg-surface-container-low border-none rounded-xl px-4 py-3 font-medium text-on-surface focus:ring-2 focus:ring-primary/20 transition-all outline-none ${formData.telegramConnected ? 'ring-2 ring-primary/20' : ''}`}
                       placeholder="@username"
                     />
                     
-                    {formData.telegramId && !formData.telegramConnected && formData.telegramVerificationCode && (
+                    {formData.telegramHandle && !formData.telegramConnected && formData.telegramVerificationCode && (
                       <div className="mt-4 p-5 bg-tertiary-container/30 rounded-2xl border border-tertiary-container/50 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="flex items-center gap-2 mb-3">
                           <div className="w-8 h-8 rounded-full bg-tertiary/20 flex items-center justify-center text-tertiary">
