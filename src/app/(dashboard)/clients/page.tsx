@@ -2,36 +2,47 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import CreateClientModal from "@/components/CreateClientModal";
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [stats, setStats] = useState({ totalClients: 0, activeProjects: 0, avgLTV: 0 });
 
-  useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const res = await fetch("/api/clients");
-        if (res.ok) {
-          const data = await res.json();
-          const clientsData = data.clients || [];
-          setClients(clientsData);
+  const handleDeleteClient = async (id: string) => {
+    if (!window.confirm("Are you sure? This will remove all history with this partner.")) return;
+    try {
+      const res = await fetch(`/api/clients/${id}`, { method: "DELETE" });
+      if (res.ok) fetchClients();
+    } catch (e) { console.error(e); }
+  };
 
-          // Calculate Aggregates
-          const totalClients = clientsData.length;
-          const activeProjects = clientsData.filter((c: any) => c.invoiceCount > 0).length;
-          const totalRevenue = clientsData.reduce((acc: number, curr: any) => acc + (curr.totalBilled || 0), 0);
-          const avgLTV = totalClients > 0 ? totalRevenue / totalClients : 0;
+  const fetchClients = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/clients");
+      if (res.ok) {
+        const data = await res.json();
+        const clientsData = data.clients || [];
+        setClients(clientsData);
 
-          setStats({ totalClients, activeProjects, avgLTV });
-        }
-      } catch (error) {
-        console.error("Failed to fetch clients", error);
-      } finally {
-        setLoading(false);
+        // Calculate Aggregates
+        const totalClients = clientsData.length;
+        const activeProjects = clientsData.filter((c: any) => c.invoiceCount > 0).length;
+        const totalRevenue = clientsData.reduce((acc: number, curr: any) => acc + (curr.totalBilled || 0), 0);
+        const avgLTV = totalClients > 0 ? totalRevenue / totalClients : 0;
+
+        setStats({ totalClients, activeProjects, avgLTV });
       }
-    };
+    } catch (error) {
+      console.error("Failed to fetch clients", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchClients();
   }, []);
 
@@ -48,7 +59,10 @@ export default function ClientsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <button className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-colors">
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-colors active:scale-95"
+          >
             <span className="material-symbols-outlined text-sm">add</span>
             New Client
           </button>
@@ -129,31 +143,32 @@ export default function ClientsPage() {
                   </div>
                 </div>
 
-                {/* Client Metrics */}
-                <div className="flex items-center gap-12 flex-1 md:justify-end">
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-1">Total Invoiced</p>
-                    <p className="font-bold text-on-surface">₦{(client.totalBilled || 0).toLocaleString()}</p>
+                  <div className="flex items-center gap-2">
+                    <Link 
+                      href={`/invoices?client=${client._id}`}
+                      className="px-4 py-2 bg-surface-container-high rounded-xl text-xs font-bold text-primary hover:bg-surface-container transition-colors"
+                    >
+                      View Invoices
+                    </Link>
+                    <button 
+                      onClick={() => handleDeleteClient(client._id)}
+                      className="material-symbols-outlined text-on-surface-variant hover:text-error transition-colors p-2 hover:bg-error-container/20 rounded-lg"
+                      title="Delete Partner"
+                    >
+                      delete
+                    </button>
                   </div>
-                  <div className="text-right hidden sm:block">
-                    <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-1">Projects</p>
-                    <p className="font-bold text-on-surface">{client.invoiceCount || 0}</p>
-                  </div>
-                  <div className="text-right hidden md:block">
-                    <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-1">Last Active</p>
-                    <p className="font-medium text-on-surface-variant">{new Date(client.lastActive).toLocaleDateString()}</p>
-                  </div>
-                  
-                  <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors p-2 hover:bg-surface-container-low rounded-lg">
-                    more_vert
-                  </button>
-                </div>
 
               </div>
             ))}
           </div>
         )}
       </section>
+      <CreateClientModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSuccess={fetchClients}
+      />
     </>
   );
 }

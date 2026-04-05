@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
 import Client from "@/models/Client";
+import { SquadProvider } from "@/lib/payments/providers/SquadProvider";
 
 export async function POST(req: Request) {
   try {
@@ -44,10 +45,30 @@ export async function POST(req: Request) {
       });
     }
 
-    // 2. Generate a random invoice number for now
+    // 2. Generate basics
     const invoiceNumber = `INV-${Math.floor(100000 + Math.random() * 900000)}`;
+    let paymentLinkId = undefined;
+    let paymentLinkUrl = undefined;
 
-    // 3. Create the Invoice
+    // 3. If "sent", generate link
+    if (status === "sent") {
+      try {
+        const squad = new SquadProvider();
+        const linkRes = await squad.createPaymentLink({
+          invoiceId: invoiceNumber,
+          amount: Number(amount),
+          customerName: clientName,
+          customerEmail: clientEmail,
+          description: serviceDescription
+        });
+        paymentLinkId = linkRes.paymentLinkId;
+        paymentLinkUrl = linkRes.paymentLinkUrl;
+      } catch (err) {
+        console.error("Payment Link Generation Failed", err);
+      }
+    }
+
+    // 4. Create the Invoice
     const invoice = await Invoice.create({
       userId,
       clientId: client._id,
@@ -57,6 +78,9 @@ export async function POST(req: Request) {
       dueDate: new Date(dueDate),
       notesTerms,
       status: status || "draft",
+      paymentLinkId,
+      paymentLinkUrl,
+      paymentProvider: status === "sent" ? "squad" : undefined
     });
 
     return NextResponse.json({ success: true, invoice }, { status: 201 });

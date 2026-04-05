@@ -8,15 +8,16 @@ import User from "@/models/User";
 // Force Next.js to dynamically render this page (never cache public invoice links)
 export const dynamic = 'force-dynamic';
 
-export default async function PublicInvoicePage({ params }: { params: { id: string } }) {
+export default async function PublicInvoicePage({ params }: { params: Promise<{ id: string }> }) {
   await dbConnect();
+  const { id } = await params;
   
   // Find Invoice and populate referenced objects
   // Initialize models so mongoose knows them
   Client.init();
   User.init();
   
-  const invoice = await Invoice.findById(params.id)
+  const invoice = await Invoice.findById(id)
     .populate("clientId", "name email phone")
     .populate("userId", "name email phone")
     .lean();

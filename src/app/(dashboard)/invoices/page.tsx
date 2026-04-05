@@ -2,11 +2,16 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 
 export default function InvoicesListPage() {
+  const searchParams = useSearchParams();
+  const clientFilter = searchParams.get("client");
+  
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("All");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -14,7 +19,11 @@ export default function InvoicesListPage() {
         const res = await fetch("/api/invoices");
         if (res.ok) {
           const data = await res.json();
-          setInvoices(data.invoices || []);
+          let list = data.invoices || [];
+          if (clientFilter) {
+            list = list.filter((inv: any) => inv.clientId?._id === clientFilter);
+          }
+          setInvoices(list);
         }
       } catch (error) {
         console.error("Failed to fetch invoices", error);
@@ -22,9 +31,25 @@ export default function InvoicesListPage() {
         setLoading(false);
       }
     };
-
     fetchInvoices();
-  }, []);
+  }, [clientFilter]);
+
+  const handleDeleteInvoice = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this invoice?")) return;
+    try {
+      const res = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setInvoices(invoices.filter(inv => inv._id !== id));
+        setOpenMenuId(null);
+      }
+    } catch (e) {}
+  };
+
+  const handleCopyLink = (url: string) => {
+    navigator.clipboard.writeText(url);
+    alert("Payment link copied to clipboard!");
+    setOpenMenuId(null);
+  };
 
   const getStatusBadgeList = (status: string) => {
     switch (status) {
@@ -67,10 +92,15 @@ export default function InvoicesListPage() {
 
       {/* Filter Tabs */}
       <div className="flex items-center space-x-1 mb-8 overflow-x-auto pb-2">
-        <button className="px-6 py-2.5 bg-primary text-on-primary rounded-full font-bold text-sm transition-all">All</button>
-        <button className="px-6 py-2.5 hover:bg-surface-container text-on-surface-variant rounded-full font-bold text-sm transition-all">Paid</button>
-        <button className="px-6 py-2.5 hover:bg-surface-container text-on-surface-variant rounded-full font-bold text-sm transition-all">Pending</button>
-        <button className="px-6 py-2.5 hover:bg-surface-container text-on-surface-variant rounded-full font-bold text-sm transition-all">Overdue</button>
+        {["All", "Paid", "Pending", "Overdue"].map((tab) => (
+          <button 
+            key={tab}
+            onClick={() => setFilter(tab)}
+            className={`px-6 py-2.5 rounded-full font-bold text-sm transition-all ${filter === tab ? 'bg-primary text-on-primary' : 'hover:bg-surface-container text-on-surface-variant'}`}
+          >
+            {tab}
+          </button>
+        ))}
         <div className="flex-grow"></div>
         <div className="flex items-center space-x-2 text-on-surface-variant text-sm font-bold bg-surface-container px-4 py-2.5 rounded-full">
           <span className="material-symbols-outlined text-sm">sort</span>
@@ -100,15 +130,23 @@ export default function InvoicesListPage() {
                   <p>Loading invoices...</p>
                 </td>
               </tr>
-            ) : invoices.length === 0 ? (
+            ) : invoices.filter(inv => {
+                if (filter === "All") return true;
+                if (filter === "Pending") return inv.status === "sent" || inv.status === "pending";
+                return inv.status === filter.toLowerCase();
+            }).length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center py-20 text-on-surface-variant font-medium">
                   <p>No invoices found. <Link href="/invoices/new" className="text-primary hover:underline">Create your first invoice</Link></p>
                 </td>
               </tr>
             ) : (
-              invoices.map((inv) => (
-                <tr key={inv._id} className="group hover:bg-surface-container-low/30 transition-colors">
+              invoices.filter(inv => {
+                if (filter === "All") return true;
+                if (filter === "Pending") return inv.status === "sent" || inv.status === "pending";
+                return inv.status === filter.toLowerCase();
+              }).map((inv) => (
+                <tr key={inv._id} className="group hover:bg-surface-container-low/30 transition-colors relative">
                   <td className="px-8 py-6">
                     <span className="font-headline font-bold text-primary">{inv.invoiceNumber}</span>
                   </td>
@@ -126,10 +164,42 @@ export default function InvoicesListPage() {
                   <td className="px-8 py-6">
                     {getStatusBadgeList(inv.status)}
                   </td>
-                  <td className="px-8 py-6 text-right">
-                    <button className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-outline hover:text-primary">
+                  <td className="px-8 py-6 text-right relative">
+                    <button 
+                      onClick={() => setOpenMenuId(openMenuId === inv._id ? null : inv._id)}
+                      className="opacity-100 p-2 text-outline hover:text-primary hover:bg-surface-container rounded-lg transition-colors"
+                    >
                       <span className="material-symbols-outlined">more_vert</span>
                     </button>
+                    
+                    {/* Minimal Dropdown Menu */}
+                    {openMenuId === inv._id && (
+                      <div className="absolute right-8 top-12 w-48 bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-outline-variant/20 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {inv.status !== 'draft' && (
+                          <button 
+                            onClick={() => handleCopyLink(`${window.location.origin}/pay/${inv._id}`)}
+                            className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-surface-container-low transition-colors flex items-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">share</span>
+                            Copy Link
+                          </button>
+                        )}
+                        <Link 
+                          href={`/invoices/${inv._id}`}
+                          className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-surface-container-low transition-colors flex items-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">visibility</span>
+                          View
+                        </Link>
+                        <button 
+                          onClick={() => handleDeleteInvoice(inv._id)}
+                          className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-error/10 text-error transition-colors flex items-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))
@@ -139,7 +209,7 @@ export default function InvoicesListPage() {
         
         {/* Pagination Section */}
         {!loading && invoices.length > 0 && (
-          <div className="px-8 py-8 flex flex-col md:flex-row items-center justify-between border-t border-outline-variant/5 gap-4">
+          <div className="px-8 py-8 flex flex-col md:flex-row items-center justify-between border-t border-outline-variant/5 gap-4" onClick={() => setOpenMenuId(null)}>
             <span className="text-on-surface-variant text-sm font-medium">Showing <span className="text-primary font-bold">1-{invoices.length}</span> of {invoices.length} invoices</span>
             <div className="flex items-center space-x-2">
               <button disabled className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface-container-low text-outline disabled:opacity-30">

@@ -49,3 +49,34 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session.user as any)?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const userId = (session.user as any).id;
+    const { name, email, phone, company } = await req.json();
+
+    if (!name || !email) {
+      return NextResponse.json({ error: "Name and Email are required" }, { status: 400 });
+    }
+
+    await dbConnect();
+
+    const newClient = await Client.create({
+      userId,
+      name,
+      email,
+      phone,
+      company
+    });
+
+    return NextResponse.json({ success: true, client: newClient }, { status: 201 });
+  } catch (error: any) {
+    console.error("Failed to create client:", error);
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+  }
+}

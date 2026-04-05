@@ -5,16 +5,21 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
+import Client from "@/models/Client";
+import InvoiceActionsClient from "@/components/InvoiceActionsClient";
+import InvoicePaperQRCode from "@/components/InvoicePaperQRCode";
 
-export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
+export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return notFound();
 
   await dbConnect();
+  Client.init(); // Prevent mongoose population crash
+  const { id } = await params;
 
   // Find Invoice
   const invoice = await Invoice.findOne({
-    _id: params.id,
+    _id: id,
     userId: (session.user as any).id
   }).populate("clientId").lean();
 
@@ -49,7 +54,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Side: Invoice Paper View */}
         <section className="lg:col-span-8">
-          <div className="bg-white rounded-[2rem] shadow-[0_12px_40px_rgba(0,52,52,0.04)] overflow-hidden border border-surface-container-highest/50 relative">
+          <div id="invoice-paper" className="bg-white rounded-[2rem] shadow-[0_12px_40px_rgba(0,52,52,0.04)] overflow-hidden border border-surface-container-highest/50 relative">
             <div className="h-2 bg-gradient-to-r from-primary via-primary-container to-secondary-fixed"></div>
             <div className="p-12 relative z-10">
               <div className="flex justify-between items-start mb-16">
@@ -92,10 +97,16 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
                 </div>
               </div>
 
-              <div className="mt-12 p-6 rounded-2xl bg-surface-container-low border-l-4 border-secondary-fixed">
-                <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Payment Terms / Notes</p>
-                <p className="text-sm text-on-surface italic leading-relaxed">&quot;{serialized.notesTerms || 'Thank you for your business.'}&quot;</p>
-                <p className="text-xs font-bold text-error mt-4">Due strict by: {serialized.dueDate ? new Date(serialized.dueDate).toLocaleDateString() : 'N/A'}</p>
+              <div className="mt-8 flex justify-between items-end relative z-10">
+                <div className="flex-1 p-6 rounded-2xl bg-surface-container-low border-l-4 border-secondary-fixed">
+                  <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Payment Terms / Notes</p>
+                  <p className="text-sm text-on-surface italic leading-relaxed">&quot;{serialized.notesTerms || 'Thank you for your business.'}&quot;</p>
+                  <p className="text-xs font-bold text-error mt-4">Due strict by: {serialized.dueDate ? new Date(serialized.dueDate).toLocaleDateString() : 'N/A'}</p>
+                </div>
+                <div className="ml-8 text-right hidden sm:block">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-3">Scan to Pay Instantly</p>
+                  <InvoicePaperQRCode value={link} size={90} />
+                </div>
               </div>
             </div>
 
@@ -107,44 +118,12 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
         {/* Right Side: Actions & Links */}
         <section className="lg:col-span-4 space-y-6">
-          <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40">
-            <h3 className="font-bold font-headline mb-4">Share with Client</h3>
-            <p className="text-sm text-on-surface-variant leading-relaxed mb-6">
-              Clients can view this invoice online and drop a payment instantly using their card or transfer.
-            </p>
-
-            <div className="relative mb-6">
-              <input
-                readOnly
-                value={link}
-                className="w-full bg-surface-container-low border-none rounded-xl py-3 pl-4 pr-12 text-sm font-medium text-on-surface truncate outline-none"
-              />
-              {/* Copy Button component placeholder. Normally we use client-side logic to copy, keeping this simple. */}
-            </div>
-
-            <Link
-              href={serialized.status === 'draft' ? `/invoices/${serialized._id}/edit` : `/pay/${serialized._id}`}
-              className="w-full h-12 rounded-xl bg-primary text-white font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
-              target="_blank"
-            >
-              <span className="material-symbols-outlined text-sm border border-white/50 p-1 rounded-md">open_in_new</span>
-              View Live Link
-            </Link>
-          </div>
-
-          <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40">
-            <h3 className="font-bold font-headline mb-4 text-on-surface">Manage Invoice</h3>
-            <div className="space-y-3">
-              <button disabled={serialized.status === 'paid'} className="w-full text-left flex items-center justify-between p-3 bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                <span className="text-sm font-medium">Mark as Paid</span>
-                <span className="material-symbols-outlined text-sm text-on-surface-variant">check_circle</span>
-              </button>
-              <button className="w-full text-left flex items-center justify-between p-3 bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors">
-                <span className="text-sm font-medium">Download PDF</span>
-                <span className="material-symbols-outlined text-sm text-on-surface-variant">download</span>
-              </button>
-            </div>
-          </div>
+          <InvoiceActionsClient 
+            paymentLink={link} 
+            isPaid={serialized.status === 'paid'} 
+            invoiceId={serialized._id} 
+            clientPhone={serialized.clientId?.phone}
+          />
 
           <div className="bg-surface-container-lowest p-6 rounded-3xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40">
             <h3 className="font-bold font-headline mb-4 text-error">Danger Zone</h3>

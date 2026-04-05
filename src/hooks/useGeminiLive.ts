@@ -3,10 +3,12 @@
 import { useState, useRef, useCallback } from "react";
 
 export function useGeminiLive(relayUrl: string, systemPrompt: string) {
-  const [isConnecting, setIsConnecting] = useState(false); // NEW
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [transcript, setTranscript] = useState(""); // NEW: Continuous transcript
+  const [cleanTranscript, setCleanTranscript] = useState(""); // NEW: Transcript without JSON
   const [error, setError] = useState<string | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
@@ -88,6 +90,7 @@ export function useGeminiLive(relayUrl: string, systemPrompt: string) {
 
     try {
       setError(null);
+      setTranscript(""); // Reset transcript on new call
       setIsConnecting(true); // Show "connecting" in UI immediately
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -104,7 +107,13 @@ export function useGeminiLive(relayUrl: string, systemPrompt: string) {
 
       socket.onopen = () => {
         console.log("✅ Connected to relay");
-        socket.send(JSON.stringify({ type: "setup", systemPrompt }));
+        socket.send(JSON.stringify({ 
+          type: "setup", 
+          systemPrompt,
+          voice: {
+            name: "Aoede" // Using a melodic voice as requested
+          }
+        }));
         // isConnecting stays true — waiting for setupComplete
       };
 
@@ -137,8 +146,18 @@ export function useGeminiLive(relayUrl: string, systemPrompt: string) {
         const serverContent = data.serverContent;
         if (serverContent?.modelTurn?.parts) {
           const parts = serverContent.modelTurn.parts;
-          const text = parts.filter((p: any) => p.text).map((p: any) => p.text).join("");
-          if (text) setMessages(prev => [...prev, { role: "assistant", content: text }]);
+          const text = parts.filter((p: any) => p.text).map((p: any) => p.text).join("").replace(/\n/g, " ");
+          if (text) {
+            setMessages(prev => [...prev, { role: "assistant", content: text }]);
+            setTranscript(prev => {
+              const newTranscript = prev + " " + text;
+              // Clean out markdown blocks AND raw JSON objects
+              let cleaned = newTranscript.replace(/```(?:json)?[\s\S]*?```/gi, "").trim();
+              cleaned = cleaned.replace(/\{[\s\S]*?"clientName"[\s\S]*?\}/gi, "").trim();
+              setCleanTranscript(cleaned);
+              return newTranscript;
+            });
+          }
 
           for (const part of parts) {
             if (part.inlineData?.data && audioContextRef.current) {
@@ -148,10 +167,14 @@ export function useGeminiLive(relayUrl: string, systemPrompt: string) {
         }
 
         if (serverContent?.outputTranscription?.text) {
-          setMessages(prev => [...prev, {
-            role: "assistant",
-            content: serverContent.outputTranscription.text
-          }]);
+          const userText = serverContent.outputTranscription.text.replace(/\n/g, " ");
+          setTranscript(prev => {
+            const newTranscript = prev + " " + userText;
+            let cleaned = newTranscript.replace(/```(?:json)?[\s\S]*?```/gi, "").trim();
+            cleaned = cleaned.replace(/\{[\s\S]*?"clientName"[\s\S]*?\}/gi, "").trim();
+            setCleanTranscript(cleaned);
+            return newTranscript;
+          });
         }
       };
 
@@ -162,7 +185,11 @@ export function useGeminiLive(relayUrl: string, systemPrompt: string) {
 
       socket.onclose = (event) => {
         console.warn(`Closed — Code: ${event.code}`);
-        if (event.code !== 1000) setError(`Connection lost (Code: ${event.code}).`);
+        // 1006 is "Abnormal Closure", common on Render/Relay disconnects. 
+        // 1000/1001/1005 are normally fine.
+        if (event.code !== 1000 && event.code !== 1005 && event.code !== 1006) {
+           setError(`Connection interrupted (Code: ${event.code}).`);
+        }
         stopSession();
       };
 
@@ -172,5 +199,5 @@ export function useGeminiLive(relayUrl: string, systemPrompt: string) {
     }
   }, [relayUrl, systemPrompt, stopSession]);
 
-  return { isConnecting, isListening, isProcessing, messages, error, startSession, stopSession };
+  return { isConnecting, isListening, isProcessing, messages, transcript: cleanTranscript, rawTranscript: transcript, error, startSession, stopSession };
 }

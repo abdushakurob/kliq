@@ -3,8 +3,9 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 export interface IClient extends Document {
   userId: mongoose.Types.ObjectId;
   name: string;
-  email?: string;
+  email: string;
   phone?: string;
+  company?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -15,6 +16,7 @@ const ClientSchema: Schema = new Schema(
     name: { type: String, required: true },
     email: { type: String },
     phone: { type: String },
+    company: { type: String },
   },
   { timestamps: true }
 );

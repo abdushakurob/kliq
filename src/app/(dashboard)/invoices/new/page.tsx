@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useGeminiLive } from "@/hooks/useGeminiLive";
+import ReactMarkdown from "react-markdown";
 
 export default function CreateInvoicePage() {
   const router = useRouter();
@@ -34,12 +35,41 @@ export default function CreateInvoicePage() {
     isConnecting,
     isListening: isLiveListening,
     messages: liveMessages,
+    transcript: liveTranscript,
+    rawTranscript,
     error: liveError,
     startSession: startLiveSession,
     stopSession: stopLiveSession
   } = useGeminiLive(
     process.env.NEXT_PUBLIC_RELAY_URL || "",
-    `You are the Kliq Pricing Coach. Gather Client Name, Service, and Amount. Today is ${new Date().toISOString()}. Once complete, output the JSON: \`\`\`json { "clientName": "...", "serviceDetails": "...", "amount": 0, "dueDate": "YYYY-MM-DD" } \`\`\``
+    `You are the Kliq Invoice Assistant, a professional and supportive advisor. 
+    Speak in clear, professional Standard Nigerian English. Use a very respectful, encouraging, and business-focused tone. USE NIGERIAN ACCENT TO SPEAK.
+
+    GOAL: Gather the Client Name, Client Email (optional), Service Details, and Amount to generate an invoice.
+    
+    IMPORTANT RULES:
+    1. The names mentioned by the user are the CLIENT'S names or BUSINESS names (the person/entity being billed). You do NOT need the user's name.
+    2. Suggest professional descriptions: If the user says something vague like "I did some photography", suggest a better line item like "Professional Event Photography & Post-Processing".
+    3. Email is optional: If they provide a client email, capture it. If not, it's fine, but feel free to ask "Would you like to add their email to send this directly?"
+    4. ONLY discuss pricing strategies if the user explicitly asks for help deciding what to charge.
+    5. Convert Dollars (e.g. "$100") to Naira at 1,500 NGN/USD.
+    
+    TONE: 
+    - Conversational, professional, and Voice-first.
+    - NEVER read code, JSON, brackets, or markdown out loud.
+    - Say "I've updated the form for you" once you have the details.
+
+    OUTPUT FORMAT:
+    When you have collected details, SILENTLY append this JSON code block at the very end of your response. Do not read it:
+    \`\`\`json
+    {
+      "clientName": "...",
+      "clientEmail": "...",
+      "serviceDetails": "...",
+      "amount": 0,
+      "dueDate": "YYYY-MM-DD"
+    }
+    \`\`\``
   );
 
   // Transfer Live Errors to UI
@@ -47,28 +77,39 @@ export default function CreateInvoicePage() {
     if (liveError) setError(liveError);
   }, [liveError]);
 
-  // Sync Live Messages to Local State
+  // Sync Live Messages & Extract JSON Background
   useEffect(() => {
     if (liveMessages.length > 0) {
       const lastLive = liveMessages[liveMessages.length - 1];
       setMessages(prev => [...prev, lastLive]);
+    }
 
-      // Attempt to parse JSON from live response
-      const jsonMatch = lastLive.content.match(/```json\n([\s\S]*?)\n```/);
+    // Scan all live messages or the raw transcript for form updates
+    if (rawTranscript) {
+      // Look for ```json ... ``` or just a raw object containing "clientName"
+      const jsonMatch = rawTranscript.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+        || rawTranscript.match(/\{[\s\S]*?"clientName"[\s\S]*?\}/i);
+
       if (jsonMatch) {
         try {
-          const parsed = JSON.parse(jsonMatch[1]);
-          setFormData(f => ({
-            ...f,
-            clientName: parsed.clientName || f.clientName,
-            serviceDescription: parsed.serviceDetails || f.serviceDescription,
-            amount: parsed.amount?.toString() || f.amount,
-            dueDate: parsed.dueDate || f.dueDate
-          }));
+          // Parse the found block (jsonMatch[1] if markdown, jsonMatch[0] if raw braces)
+          const jsonString = jsonMatch[1] ? jsonMatch[1] : jsonMatch[0];
+          const parsed = JSON.parse(jsonString);
+
+          if (parsed.clientName || parsed.serviceDetails || parsed.amount) {
+            setFormData(f => ({
+              ...f,
+              clientName: parsed.clientName || f.clientName,
+              clientEmail: parsed.clientEmail || f.clientEmail,
+              serviceDescription: parsed.serviceDetails || f.serviceDescription,
+              amount: parsed.amount?.toString() || f.amount,
+              dueDate: parsed.dueDate || f.dueDate
+            }));
+          }
         } catch (e) { }
       }
     }
-  }, [liveMessages]);
+  }, [liveMessages, rawTranscript]);
 
   // Voice Recognition (Legacy cleanup - we prioritize Live mode now)
   const startListening = () => {
@@ -113,6 +154,7 @@ export default function CreateInvoicePage() {
         setFormData(prev => ({
           ...prev,
           clientName: data.parsed.clientName || prev.clientName,
+          clientEmail: data.parsed.clientEmail || prev.clientEmail,
           serviceDescription: data.parsed.serviceDetails || prev.serviceDescription,
           amount: data.parsed.amount?.toString() || prev.amount,
           dueDate: data.parsed.dueDate || prev.dueDate
@@ -210,7 +252,7 @@ export default function CreateInvoicePage() {
                     }}
                     className={`text-[10px] uppercase tracking-widest font-black px-3 py-1 rounded-full transition-all ${isLiveMode ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-white/10 text-white hover:bg-white/20'}`}
                   >
-                    {isLiveMode ? 'Exit Live' : 'Go Live'}
+                    {isLiveMode ? 'Exit Session' : 'Switch to Voice'}
                   </button>
                   <div className={`${isLiveMode || isListening ? 'bg-secondary-fixed' : 'bg-surface-container-highest/20'} text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full transition-colors`}>
                     {isLiveMode ? 'Live Relay' : isListening ? 'Listening' : 'Ready'}
@@ -218,24 +260,45 @@ export default function CreateInvoicePage() {
                 </div>
               </div>
 
-              {/* Chat View */}
-              <div className="mb-6 space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`p-4 rounded-3xl max-w-[85%] text-sm font-medium leading-relaxed ${msg.role === 'user' ? 'bg-secondary-fixed text-on-secondary-fixed shadow-lg rounded-tr-sm' : 'bg-white/10 text-white rounded-tl-sm backdrop-blur-md border border-white/5'}`}>
-                      {msg.content}
+              {/* Chat View / Transcript */}
+              <div className="mb-6 space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar min-h-[100px]">
+                {isLiveMode ? (
+                  // BIG BOLD Live Transcript View
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="p-8">
+                      <div className="text-4xl md:text-5xl font-black leading-tight text-white italic transition-all duration-300">
+                        {/* Split transcript into words for trailing highlight effect */}
+                        {liveTranscript.split(" ").map((word, index, arr) => {
+                          const isRecent = index >= arr.length - 7;
+                          return (
+                            <span
+                              key={index}
+                              className={`inline-block mr-[0.3em] transition-colors duration-500 ${isRecent ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/40'}`}
+                            >
+                              {word}
+                            </span>
+                          );
+                        })}
+                        {isLiveListening && (
+                          <span className="inline-block w-4 h-[1em] bg-secondary-fixed ml-2 animate-pulse align-middle"></span>
+                        )}
+                        {!liveTranscript && "Listening..."}
+                      </div>
                     </div>
                   </div>
-                ))}
-
-                {isLiveMode && (
-                  <div className="flex justify-center py-4">
-                    <div className="flex items-end gap-1 h-8">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className={`w-1 bg-secondary-fixed rounded-full animate-bounce h-${(i % 3) + 4}`} style={{ animationDelay: `${i * 0.1}s` }}></div>
-                      ))}
+                ) : (
+                  // Classic Chat Bubbles
+                  messages.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`p-4 rounded-3xl max-w-[85%] text-sm font-medium leading-relaxed ${msg.role === 'user' ? 'bg-secondary-fixed text-on-secondary-fixed shadow-lg rounded-tr-sm' : 'bg-white/10 text-white rounded-tl-sm backdrop-blur-md border border-white/5'}`}>
+                        <div className="prose prose-invert max-w-none prose-p:my-1 prose-strong:text-white prose-ul:my-2 prose-li:my-0">
+                          <ReactMarkdown>
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))
                 )}
 
                 {isParsingAI && (
@@ -253,7 +316,7 @@ export default function CreateInvoicePage() {
                 {isLiveMode ? (
                   <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-8 flex flex-col items-center justify-center gap-6 group">
                     {!isLiveListening && !isConnecting ? (
-                      <button 
+                      <button
                         type="button"
                         onClick={startLiveSession}
                         className="w-20 h-20 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center shadow-2xl hover:scale-105 transition-transform"
@@ -269,7 +332,7 @@ export default function CreateInvoicePage() {
                       // Active/stop button
                       <div className="relative flex items-center justify-center">
                         <div className="absolute w-24 h-24 bg-secondary-fixed/20 rounded-full animate-ping"></div>
-                        <button 
+                        <button
                           type="button"
                           onClick={stopLiveSession}
                           className="relative w-20 h-20 rounded-full bg-error text-white flex items-center justify-center shadow-2xl"
@@ -299,7 +362,7 @@ export default function CreateInvoicePage() {
                       }}
                     ></textarea>
                     <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                      <button type="button" onClick={handleMagicInputSubmit} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low text-white hover:bg-surface-container transition-colors">
+                      <button type="button" onClick={handleMagicInputSubmit} className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-white hover:bg-surface-container transition-colors">
                         <span className="material-symbols-outlined text-sm">send</span>
                       </button>
                     </div>

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import CreateClientModal from "@/components/CreateClientModal";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -10,6 +11,7 @@ export default function DashboardPage() {
 
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false); // NEW
 
   // Metrics
   const [totalEarned, setTotalEarned] = useState(0);
@@ -256,10 +258,13 @@ export default function DashboardPage() {
                   add
                 </span>
               </Link>
-              <button className="w-full flex items-center justify-between p-3 bg-surface-container-lowest rounded-xl hover:bg-white transition-colors">
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="w-full flex items-center justify-between p-3 bg-surface-container-lowest rounded-xl hover:bg-white transition-colors animate-in fade-in slide-in-from-right-2 duration-300"
+              >
                 <span className="text-sm font-medium">Add New Client</span>
                 <span className="material-symbols-outlined text-primary text-sm">
-                  chevron_right
+                  add
                 </span>
               </button>
             </div>
@@ -352,6 +357,11 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+      <CreateClientModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSuccess={() => window.location.reload()} // Refresh stats
+      />
     </>
   );
 }
