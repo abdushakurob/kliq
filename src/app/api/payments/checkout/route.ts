@@ -28,14 +28,22 @@ export async function POST(req: Request) {
     }
 
     const squad = new SquadProvider();
+    const clientDoc = invoice.clientId as any;
+
+    // Construct a dynamic description from items if needed
+    let finalDescription = invoice.serviceDescription;
+    if (!finalDescription && invoice.items?.length > 0) {
+      finalDescription = invoice.items[0].description + (invoice.items.length > 1 ? ` (+ ${invoice.items.length - 1} more items)` : "");
+    }
     
     const link = await squad.createPaymentLink({
       invoiceId: invoice._id.toString(),
       invoiceNumber: invoice.invoiceNumber,
       amount: Number(invoice.amount),
-      customerEmail: userDoc?.email || "merchant@example.com",
-      customerName: userDoc?.name || "Kliq Merchant",
-      description: invoice.serviceDescription || "Kliq Invoicing Services"
+      customerEmail: clientDoc?.email || "customer@example.com",
+      customerName: clientDoc?.name,
+      merchantEmail: userDoc?.email || undefined,
+      description: finalDescription || "Kliq Invoicing Services"
     });
 
     if (link.paymentLinkUrl) {

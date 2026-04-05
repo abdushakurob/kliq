@@ -18,10 +18,10 @@ export class SquadProvider implements PaymentProvider {
     const amountInKobo = Math.round(request.amount * 100);
     // Prioritize production key, fallback to test key for local development
     const secretKey = process.env.SQUAD_SECRET_KEY || process.env.SQAD_TEST_KEY;
-    const isProduction = process.env.NODE_ENV === "production";
-    const baseUrl = isProduction 
-      ? "https://api-d.squadco.com" 
-      : "https://sandbox-api-d.squadco.com";
+    const isSandbox = secretKey?.startsWith("sk_test");
+    const baseUrl = isSandbox 
+      ? "https://sandbox-api-d.squadco.com" 
+      : "https://api-d.squadco.com";
 
     if (!secretKey) {
       throw new Error("Squad Secret Key is not configured. Please set SQUAD_SECRET_KEY in environment variables.");
