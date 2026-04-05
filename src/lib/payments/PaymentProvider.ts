@@ -1,5 +1,6 @@
 export interface CreatePaymentLinkRequest {
   invoiceId: string;
+  invoiceNumber?: string;
   amount: number;
   currency?: string;
   customerName: string;

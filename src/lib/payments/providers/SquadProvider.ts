@@ -34,11 +34,12 @@ export class SquadProvider implements PaymentProvider {
           email: request.customerEmail || "customer@example.com",
           currency: "NGN",
           initiate_type: "inline",
-          transaction_ref: `KLIQ_${request.invoiceId}_${Date.now()}`,
+          transaction_ref: `KLIQ_${request.invoiceNumber}_${Date.now()}`,
           customer_name: request.customerName,
-          callback_url: `${process.env.NEXTAUTH_URL}/pay-success`,
+          callback_url: `${process.env.NEXTAUTH_URL}/pay-success?invoice_id=${request.invoiceId}`,
           metadata: {
             invoiceId: request.invoiceId,
+            invoiceNumber: request.invoiceNumber,
             description: request.description
           }
         }),

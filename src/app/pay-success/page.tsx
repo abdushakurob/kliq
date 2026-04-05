@@ -7,8 +7,9 @@ import { useSearchParams } from "next/navigation";
 function PaySuccessContent() {
   const searchParams = useSearchParams();
   const reference = searchParams.get("reference") || "";
+  const invoiceId = searchParams.get("invoice_id") || "";
   
-  // Extract Invoice Number from Reference (e.g. KLIQ_INV-123456_timestamp)
+  // Extract Invoice Number from Reference (e.g. KLIQ_INV-586112_timestamp)
   let invoiceNumber = "N/A";
   if (reference.includes("_")) {
     const parts = reference.split("_");
@@ -31,34 +32,57 @@ function PaySuccessContent() {
         <h1 className="text-4xl font-black font-headline tracking-tighter text-primary mb-3">
           Payment Successful!
         </h1>
-        <p className="text-on-surface-variant font-medium leading-relaxed mb-10">
-          Your payment for <span className="text-primary font-bold">{invoiceNumber}</span> has been processed successfully. A receipt has been sent to your email.
+        <p className="text-on-surface-variant font-medium leading-relaxed mb-10 px-4">
+          The payment for invoice <span className="text-primary font-bold">{invoiceNumber}</span> has been secured. You can now download or print your finalized receipt.
         </p>
 
         {/* Details Card */}
-        <div className="bg-surface-container-lowest p-6 rounded-3xl border border-white/60 shadow-lg mb-10 text-left">
+        <div className="bg-surface-container-lowest p-6 rounded-3xl border border-white/60 shadow-lg mb-8 text-left">
            <div className="flex justify-between items-center mb-4 pb-4 border-b border-surface-container-low">
              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Reference ID</span>
-             <code className="text-xs font-black text-primary truncate max-w-[150px]">{reference}</code>
+             <code className="text-[10px] font-black text-primary truncate max-w-[180px]">{reference}</code>
            </div>
            <div className="flex justify-between items-center">
              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Status</span>
-             <span className="px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-[10px] font-black uppercase">Verified</span>
+             <div className="flex items-center gap-1.5 text-secondary font-black text-[10px] uppercase">
+               <span className="material-symbols-outlined text-[14px]">verified</span>
+               Confirmed
+             </div>
            </div>
         </div>
 
         <div className="flex flex-col gap-3">
+          {invoiceId && (
+            <Link 
+              href={`/pay/${invoiceId}`}
+              className="w-full h-14 rounded-2xl bg-primary text-white font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform shadow-lg shadow-primary/20"
+            >
+              <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+              Review Paid Invoice
+            </Link>
+          )}
+          
+          <button 
+            onClick={() => window.print()}
+            className="w-full h-14 rounded-2xl bg-surface-container-high text-on-surface font-bold flex items-center justify-center gap-2 hover:bg-surface-container-highest transition-colors"
+          >
+            <span className="material-symbols-outlined text-[18px]">print</span>
+            Print Receipt
+          </button>
+
           <Link 
             href="/"
-            className="w-full h-14 rounded-2xl bg-primary text-white font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform shadow-lg shadow-primary/20"
+            className="text-xs text-on-surface-variant font-bold hover:text-primary transition-colors mt-4"
           >
-            <span className="material-symbols-outlined text-[18px]">home</span>
-            Return to Dashboard
+            Back to Home
           </Link>
-          <p className="text-xs text-on-surface-variant font-medium opacity-60">
-            You can safely close this window now.
-          </p>
         </div>
+      </div>
+
+      {/* Hidden print-only branding */}
+      <div className="hidden print:block fixed top-0 left-0 p-8">
+        <h2 className="text-2xl font-black italic">Kliq Invoicing</h2>
+        <p className="text-sm">Payment Confirmation Receipt</p>
       </div>
     </div>
   );

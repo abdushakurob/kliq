@@ -27,7 +27,8 @@ export async function POST(req: Request) {
     const squad = new SquadProvider();
     
     const link = await squad.createPaymentLink({
-      invoiceId: invoice.invoiceNumber,
+      invoiceId: invoice._id.toString(),
+      invoiceNumber: invoice.invoiceNumber,
       amount: Number(invoice.amount),
       customerEmail: (invoice.clientId as any)?.email || "customer@example.com",
       customerName: (invoice.clientId as any)?.name || "Valued Customer",

@@ -11,61 +11,63 @@ export async function POST(req: Request) {
 
     const payload = await req.json();
 
-    // Squad typical event structure simulation
+    // Squad typical event structure
     if (payload.Event === 'charge.completed' || payload.event === 'charge.completed') {
       const transactionRef = payload.Body?.transaction_ref || payload.body?.transaction_ref;
-      const invoiceId = payload.Body?.meta?.invoiceId || payload.body?.meta?.invoiceId;
+      const id = payload.Body?.meta?.invoiceId || payload.body?.meta?.invoiceId;
 
       await dbConnect();
-      // Explicitly init user so mongoose can populate it
-      User.init();
+      User.init(); // Explicitly init user so mongoose can populate it
 
-      if (invoiceId) {
-        // Mark invoice as paid and fetch the studio user to trigger notifications
-        const updatedInvoice = await Invoice.findByIdAndUpdate(
-          invoiceId,
-          { status: "paid" },
-          { new: true }
-        ).populate("userId");
+      if (id) {
+        // Find the invoice: try by ID first, then by invoiceNumber (human ref)
+        let invoice = await Invoice.findById(id).populate("userId");
+        if (!invoice) {
+          invoice = await Invoice.findOne({ invoiceNumber: id }).populate("userId");
+        }
 
-        // Create a standalone transaction log
-        await Transaction.create({
-          invoiceId,
-          amount: Number(payload.Body?.amount || 0) / 100, // Converts Kobo back to Naira
-          paymentProvider: "squad",
-          providerTransactionId: transactionRef,
-          status: "success",
-          metadata: payload
-        });
+        if (invoice) {
+          // Mark as paid
+          invoice.status = "paid";
+          await invoice.save();
 
-        // Telegram Notification Logic
-        const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
-        const userDoc = (updatedInvoice?.userId as any);
-        const telegramId = userDoc?.telegramId;
-        const isConnected = !!userDoc?.telegramConnectedAt;
+          // Create a standalone transaction log
+          await Transaction.create({
+            invoiceId: invoice._id,
+            amount: Number(payload.Body?.amount || 0) / 100, // Converts Kobo back to Naira
+            paymentProvider: "squad",
+            providerTransactionId: transactionRef,
+            status: "success",
+            metadata: payload
+          });
 
-        if (telegramBotToken && telegramId && isConnected && updatedInvoice) {
-          const message = `🎉 *Payment Received!*\n\nInvoice: ${updatedInvoice.invoiceNumber}\nAmount: ₦${Number(updatedInvoice.amount).toLocaleString()}\nService: ${updatedInvoice.serviceDescription}\n\nThe payment has been secured successfully by Squad.`;
+          // Telegram Notification Logic
+          const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+          const userDoc = (invoice.userId as any);
+          const telegramId = userDoc?.telegramId;
+          const isConnected = !!userDoc?.telegramConnectedAt;
 
-          try {
-            await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                chat_id: telegramId,
-                text: message,
-                parse_mode: "Markdown"
-              })
-            });
-            console.log("Sent Telegram notification to", telegramId);
-          } catch (teleErr) {
-            console.error("Failed to push Telegram notification", teleErr);
+          if (telegramBotToken && telegramId && isConnected) {
+            const message = `🎉 *Payment Received!*\n\nInvoice: ${invoice.invoiceNumber}\nAmount: ₦${Number(invoice.amount).toLocaleString()}\nService: ${invoice.serviceDescription}\n\nThe payment has been secured successfully by Squad.`;
+
+            try {
+              await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  chat_id: telegramId,
+                  text: message,
+                  parse_mode: "Markdown"
+                })
+              });
+            } catch (teleErr) {
+              console.error("Failed to push Telegram notification", teleErr);
+            }
           }
         }
       }
     }
 
-    // Always respond 200 OK to webhooks to prevent retries
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
