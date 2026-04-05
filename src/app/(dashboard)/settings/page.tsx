@@ -60,7 +60,7 @@ export default function SettingsPage() {
         body: JSON.stringify(formData)
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         setMessage({ type: 'success', text: 'Settings updated successfully!' });
         if (data.user) {
@@ -96,13 +96,13 @@ export default function SettingsPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        
+
         {/* Left Col: Settings Forms */}
         <section className="lg:col-span-2 space-y-8">
-          
+
           <form onSubmit={handleSubmit} className="bg-surface-container-lowest p-8 rounded-3xl shadow-[0_12px_40px_rgba(0,52,52,0.04)] border border-white/40">
             <h2 className="text-xl font-bold font-headline mb-6 border-b border-surface-container-low pb-4">Personal Information</h2>
-            
+
             {loading ? (
               <div className="py-10 text-on-surface-variant font-medium text-center">Loading settings...</div>
             ) : (
@@ -151,7 +151,7 @@ export default function SettingsPage() {
                 </div>
 
                 <h2 className="text-xl font-bold font-headline mt-10 mb-6 border-b border-surface-container-low pb-4 pt-4">App Integrations</h2>
-                
+
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">
@@ -189,7 +189,7 @@ export default function SettingsPage() {
                       className={`w-full bg-surface-container-low border-none rounded-xl px-4 py-3 font-medium text-on-surface focus:ring-2 focus:ring-primary/20 transition-all outline-none ${formData.telegramConnected ? 'ring-2 ring-primary/20' : ''}`}
                       placeholder="@username"
                     />
-                    
+
                     {formData.telegramHandle && !formData.telegramConnected && formData.telegramVerificationCode && (
                       <div className="mt-4 p-5 bg-tertiary-container/30 rounded-2xl border border-tertiary-container/50 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="flex items-center gap-2 mb-3">
@@ -198,14 +198,14 @@ export default function SettingsPage() {
                           </div>
                           <p className="text-sm font-black text-on-tertiary-container uppercase tracking-tight">Verify Your Handle</p>
                         </div>
-                        
+
                         <p className="text-sm text-on-surface-variant leading-relaxed mb-4">
                           To receive instant payment alerts, you must verify your account with our bot.
                         </p>
 
                         <div className="bg-white/40 p-3 rounded-xl border border-white/60 mb-4 flex items-center justify-between group">
                           <code className="text-secondary font-black text-xs">/verify {formData.telegramVerificationCode}</code>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => {
                               navigator.clipboard.writeText(`/verify ${formData.telegramVerificationCode}`);
@@ -217,17 +217,17 @@ export default function SettingsPage() {
                           </button>
                         </div>
 
-                        <a 
-                          href={`https://t.me/KliqInvoicingBot?start=${formData.telegramVerificationCode}`} 
-                          target="_blank" 
-                          className="w-full h-11 rounded-xl bg-tertiary text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-tertiary/90 transition-all shadow-lg shadow-tertiary/20"
+                        <a
+                          href={`https://t.me/KliqInvoicingBot?start`}
+                          target="_blank"
+                          className="w-full h-11 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-tertiary/20"
                         >
-                          <span className="material-symbols-outlined text-[18px]">send</span>
+                          <span className="material-symbols-outlined text-[18px] ">send</span>
                           Open Bot & Verify
                         </a>
-                        
+
                         <p className="text-[10px] text-on-surface-variant mt-3 text-center font-medium">
-                          Instructions: Click the button above, then click "Start" or send the copied command manually.
+                          Instructions: Click the button above, or search for <span className="text-secondary font-black text-xs">@useKliq_bot</span> then click "Start" or send the copied command manually.
                         </p>
                       </div>
                     )}
@@ -235,14 +235,14 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="pt-6 mt-6 border-t border-surface-container-low flex justify-between items-center">
-                   {message ? (
-                      <span className={`text-sm font-bold ${message.type === 'success' ? 'text-primary' : 'text-error'}`}>
-                        {message.text}
-                      </span>
-                   ) : (
-                     <span></span> // spacer
-                   )}
-                   
+                  {message ? (
+                    <span className={`text-sm font-bold ${message.type === 'success' ? 'text-primary' : 'text-error'}`}>
+                      {message.text}
+                    </span>
+                  ) : (
+                    <span></span> // spacer
+                  )}
+
                   <button
                     type="submit"
                     disabled={saving}
