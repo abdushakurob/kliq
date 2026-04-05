@@ -63,6 +63,17 @@ export default function SettingsPage() {
       
       if (res.ok) {
         setMessage({ type: 'success', text: 'Settings updated successfully!' });
+        if (data.user) {
+          setFormData({
+            name: data.user.name || "",
+            email: data.user.email || "",
+            phone: data.user.phone || "",
+            telegramId: data.user.telegramId || "",
+            whatsappId: data.user.whatsappId || "",
+            telegramVerificationCode: data.user.telegramVerificationCode || "",
+            telegramConnected: !!data.user.telegramConnected
+          });
+        }
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to update settings.' });
       }
