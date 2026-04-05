@@ -84,13 +84,16 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
                   <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Amount</span>
                 </div>
                 <div className="flex justify-between items-start">
-                  <h2 className="text-xl font-bold font-headline text-on-surface max-w-[70%]">{serialized.serviceDetails}</h2>
+                 <h2 className="text-xl font-bold font-headline text-on-surface max-w-[70%]">{serialized.serviceDescription}</h2>
                   <p className="text-xl font-bold font-headline text-on-surface">₦ {Number(serialized.amount).toLocaleString()}</p>
                 </div>
                 {serialized.notesTerms && (
                   <p className="text-sm text-on-surface-variant mt-4 italic">Note: {serialized.notesTerms}</p>
                 )}
              </div>
+
+             {/* Error Message if any */}
+             {/* Note: This assumes searchParams are handled by client logic or server-side params parsing if you want to show it. For static generation, let's keep it simple for now. */}
 
              {/* Total & Action */}
              <div className="flex flex-col sm:flex-row items-center justify-between gap-8 mt-12 bg-surface-container-lowest p-6 rounded-3xl border border-surface-container shadow-sm">

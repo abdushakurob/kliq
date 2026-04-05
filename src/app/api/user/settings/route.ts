@@ -12,13 +12,19 @@ export async function GET(req: Request) {
     }
 
     await dbConnect();
-    const user = await User.findById((session.user as any).id, "name email phone telegramId whatsappId").lean();
+    const user = await User.findById((session.user as any).id, "name email phone telegramId whatsappId telegramVerificationCode telegramConnectedAt").lean();
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, user }, { status: 200 });
+    return NextResponse.json({ 
+      success: true, 
+      user: {
+        ...user,
+        telegramConnected: !!user.telegramConnectedAt
+      }
+    }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Server Error" }, { status: 500 });
   }

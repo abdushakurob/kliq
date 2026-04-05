@@ -27,16 +27,18 @@ export async function POST(req: Request) {
     const squad = new SquadProvider();
     
     const link = await squad.createPaymentLink({
-      invoiceId: invoice._id.toString(),
+      invoiceId: invoice.invoiceNumber,
       amount: Number(invoice.amount),
       customerEmail: (invoice.clientId as any)?.email || "customer@example.com",
       customerName: (invoice.clientId as any)?.name || "Valued Customer",
-      description: (invoice as any).serviceDetails || "Kliq Invoicing Services"
+      description: invoice.serviceDescription || "Kliq Invoicing Services"
     });
 
-    // In a real environment, redirect to the returned provider portal URL.
-    // For this simulation/demo, we'll redirect back to the payment page with a success flag
-    return NextResponse.redirect(new URL(`/pay/${invoiceId}?simulated_payment=success`, req.url), 303);
+    if (link.paymentLinkUrl) {
+      return NextResponse.redirect(link.paymentLinkUrl, 303);
+    }
+
+    return NextResponse.redirect(new URL(`/pay/${invoiceId}?error=link_generation_failed`, req.url), 303);
 
   } catch (err: any) {
     console.error("Checkout error:", err);

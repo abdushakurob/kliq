@@ -180,13 +180,43 @@ export default function SettingsPage() {
                     />
                     
                     {formData.telegramId && !formData.telegramConnected && formData.telegramVerificationCode && (
-                      <div className="mt-4 p-4 bg-tertiary-container/30 rounded-2xl border border-tertiary-container/50 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <p className="text-xs font-bold text-on-tertiary-container mb-2 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-sm">info</span>
-                          Complete Connection
+                      <div className="mt-4 p-5 bg-tertiary-container/30 rounded-2xl border border-tertiary-container/50 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-8 h-8 rounded-full bg-tertiary/20 flex items-center justify-center text-tertiary">
+                            <span className="material-symbols-outlined text-[18px]">lock_person</span>
+                          </div>
+                          <p className="text-sm font-black text-on-tertiary-container uppercase tracking-tight">Verify Your Handle</p>
+                        </div>
+                        
+                        <p className="text-sm text-on-surface-variant leading-relaxed mb-4">
+                          To receive instant payment alerts, you must verify your account with our bot.
                         </p>
-                        <p className="text-xs text-on-surface-variant leading-relaxed">
-                          Send <code className="bg-white/50 px-2 py-0.5 rounded font-black text-tertiary">/verify {formData.telegramVerificationCode}</code> to our bot <a href={`https://t.me/KliqInvoicingBot`} target="_blank" className="font-bold text-primary underline">@KliqInvoicingBot</a> to link your account.
+
+                        <div className="bg-white/40 p-3 rounded-xl border border-white/60 mb-4 flex items-center justify-between group">
+                          <code className="text-secondary font-black text-xs">/verify {formData.telegramVerificationCode}</code>
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`/verify ${formData.telegramVerificationCode}`);
+                              alert("Verification command copied!");
+                            }}
+                            className="bg-white p-1.5 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                          </button>
+                        </div>
+
+                        <a 
+                          href={`https://t.me/KliqInvoicingBot?start=${formData.telegramVerificationCode}`} 
+                          target="_blank" 
+                          className="w-full h-11 rounded-xl bg-tertiary text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-tertiary/90 transition-all shadow-lg shadow-tertiary/20"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">send</span>
+                          Open Bot & Verify
+                        </a>
+                        
+                        <p className="text-[10px] text-on-surface-variant mt-3 text-center font-medium">
+                          Instructions: Click the button above, then click "Start" or send the copied command manually.
                         </p>
                       </div>
                     )}
