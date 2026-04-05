@@ -18,7 +18,7 @@ export class SquadProvider implements PaymentProvider {
     const amountInKobo = Math.round(request.amount * 100);
     // Prioritize production key, fallback to test key for local development
     const secretKey = process.env.SQUAD_SECRET_KEY || process.env.SQAD_TEST_KEY;
-    const isSandbox = secretKey?.startsWith("sk_test");
+    const isSandbox = secretKey?.startsWith("sk_test") || secretKey?.startsWith("sandbox_sk_");
     const baseUrl = isSandbox 
       ? "https://sandbox-api-d.squadco.com" 
       : "https://api-d.squadco.com";
