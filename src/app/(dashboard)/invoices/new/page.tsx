@@ -24,7 +24,7 @@ export default function CreateInvoicePage() {
   const [error, setError] = useState("");
   const [magicInput, setMagicInput] = useState("");
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
-  
+
   useEffect(() => {
     if (session?.user?.name && messages.length === 0) {
       setMessages([
@@ -93,9 +93,9 @@ export default function CreateInvoicePage() {
   useEffect(() => {
     if (liveError) {
       if (liveError.includes("Relay Error") || liveError.includes("WebSocket")) {
-         setError("Establishing secure line failed. I'm unable to connect to the AI server right now. Please try again later.");
+        setError("Establishing secure line failed. I'm unable to connect to the AI server right now. Please try again later.");
       } else {
-         setError("Connection lost. Please check your data connection.");
+        setError("Connection lost. Please check your data connection.");
       }
     }
   }, [liveError]);
@@ -119,9 +119,9 @@ export default function CreateInvoicePage() {
           if (parsed.clientName || parsed.items) {
             setFormData(f => {
               const newItems = parsed.items ? parsed.items.map((it: any) => ({
-                 description: it.description || "",
-                 quantity: it.quantity || 1,
-                 unitPrice: it.unitPrice?.toString() || ""
+                description: it.description || "",
+                quantity: it.quantity || 1,
+                unitPrice: it.unitPrice?.toString() || ""
               })) : f.items;
 
               const total = newItems.reduce((sum: number, it: any) => sum + (Number(it.unitPrice) * Number(it.quantity)), 0);
@@ -168,9 +168,9 @@ export default function CreateInvoicePage() {
 
       const data = await res.json();
       if (data.reply) {
-        setMessages(prev => [...prev, 
-          { role: "user", content: magicInput },
-          { role: "assistant", content: data.reply }
+        setMessages(prev => [...prev,
+        { role: "user", content: magicInput },
+        { role: "assistant", content: data.reply }
         ]);
         setMagicInput("");
       }
@@ -257,8 +257,8 @@ export default function CreateInvoicePage() {
         {bars.map((base, i) => (
           <div
             key={i}
-            className="w-1 bg-primary rounded-full transition-all duration-75"
-            style={{ 
+            className="w-1 bg-white rounded-full transition-all duration-75"
+            style={{
               height: `${Math.max(4, base * volume * 0.8)}px`,
               opacity: isLiveListening ? 1 : 0.3
             }}
@@ -352,9 +352,9 @@ export default function CreateInvoicePage() {
                             );
                           })
                         ) : (
-                           <span className="text-white/20 not-italic font-bold text-2xl tracking-tight animate-pulse">
-                              {isConnecting ? "Establishing secure line..." : "Awaiting your voice..."}
-                           </span>
+                          <span className="text-white/20 not-italic font-bold text-2xl tracking-tight animate-pulse">
+                            {isConnecting ? "Establishing secure line..." : "Awaiting your voice..."}
+                          </span>
                         )}
                         {isLiveListening && (
                           <span className="inline-block w-4 h-[1em] bg-secondary-fixed ml-2 animate-pulse align-middle rounded-sm shadow-[0_0_15px_rgba(var(--secondary-fixed-rgb),0.5)]"></span>
@@ -416,10 +416,10 @@ export default function CreateInvoicePage() {
                     )}
 
                     <div className="flex flex-col items-center gap-2">
-                       {isLiveListening && <VoiceWaveform volume={volume} />}
-                       <p className="text-sm font-bold text-secondary-fixed-dim animate-pulse text-center">
-                          {isConnecting ? 'Establishing secure line...' : isLiveListening ? 'Connected & Listening' : 'Click to start conversation'}
-                       </p>
+                      {isLiveListening && <VoiceWaveform volume={volume} />}
+                      <p className="text-sm font-bold text-secondary-fixed-dim animate-pulse text-center">
+                        {isConnecting ? 'Establishing secure line...' : isLiveListening ? 'Connected & Listening' : 'Click to start conversation'}
+                      </p>
                     </div>
                   </div>
                 ) : (
@@ -462,20 +462,20 @@ export default function CreateInvoicePage() {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Client Name</label>
-                  <input 
-                    value={formData.clientName} 
-                    onChange={(e) => setFormData({...formData, clientName: e.target.value})} 
-                    className="w-full h-14 px-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium" 
-                    placeholder="E.g. Kolawole Adedeji" type="text" 
+                  <input
+                    value={formData.clientName}
+                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                    className="w-full h-14 px-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium"
+                    placeholder="E.g. Kolawole Adedeji" type="text"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Email Address</label>
-                  <input 
-                    value={formData.clientEmail} 
-                    onChange={(e) => setFormData({...formData, clientEmail: e.target.value})} 
-                    className="w-full h-14 px-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium" 
-                    placeholder="client@company.com" type="email" 
+                  <input
+                    value={formData.clientEmail}
+                    onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
+                    className="w-full h-14 px-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium"
+                    placeholder="client@company.com" type="email"
                   />
                 </div>
               </div>
@@ -489,13 +489,13 @@ export default function CreateInvoicePage() {
                     Add Item
                   </button>
                 </div>
-                
+
                 <div className="space-y-3">
                   {formData.items.map((item, idx) => (
                     <div key={idx} className="p-4 bg-surface-container-low border border-surface-container rounded-2xl relative group/item hover:border-primary/30 transition-colors">
                       <div className="grid grid-cols-12 gap-4">
                         <div className="col-span-12 md:col-span-6">
-                           <input
+                          <input
                             type="text"
                             value={item.description}
                             onChange={(e) => updateItem(idx, 'description', e.target.value)}
@@ -504,8 +504,8 @@ export default function CreateInvoicePage() {
                           />
                         </div>
                         <div className="col-span-4 md:col-span-2">
-                           <label className="text-[8px] font-bold text-on-surface-variant uppercase block mb-1">Qty</label>
-                           <input
+                          <label className="text-[8px] font-bold text-on-surface-variant uppercase block mb-1">Qty</label>
+                          <input
                             type="number"
                             value={item.quantity}
                             onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
@@ -513,8 +513,8 @@ export default function CreateInvoicePage() {
                           />
                         </div>
                         <div className="col-span-6 md:col-span-3">
-                           <label className="text-[8px] font-bold text-on-surface-variant uppercase block mb-1">Unit Price (₦)</label>
-                           <input
+                          <label className="text-[8px] font-bold text-on-surface-variant uppercase block mb-1">Unit Price (₦)</label>
+                          <input
                             type="number"
                             value={item.unitPrice}
                             onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
@@ -538,25 +538,25 @@ export default function CreateInvoicePage() {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Due Date</label>
-                  <input 
-                    value={formData.dueDate} 
-                    onChange={(e) => setFormData({...formData, dueDate: e.target.value})} 
-                    className="w-full h-14 px-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium" type="date" 
+                  <input
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    className="w-full h-14 px-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium" type="date"
                   />
                 </div>
                 <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Total (NGN)</label>
-                   <div className="h-14 px-5 rounded-2xl bg-surface-container-high border border-surface-container flex items-center font-black text-primary text-xl">
-                      ₦ {Number(formData.amount).toLocaleString()}
-                   </div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Total (NGN)</label>
+                  <div className="h-14 px-5 rounded-2xl bg-surface-container-high border border-surface-container flex items-center font-black text-primary text-xl">
+                    ₦ {Number(formData.amount).toLocaleString()}
+                  </div>
                 </div>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-1">Notes / Terms</label>
-                <textarea 
-                  value={formData.notesTerms} 
-                  onChange={(e) => setFormData({...formData, notesTerms: e.target.value})} 
-                  className="w-full p-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium resize-none" 
+                <textarea
+                  value={formData.notesTerms}
+                  onChange={(e) => setFormData({ ...formData, notesTerms: e.target.value })}
+                  className="w-full p-5 rounded-2xl bg-surface-container-low border border-surface-container focus:ring-2 focus:ring-primary transition-all font-medium resize-none"
                   placeholder="Include bank details or specific terms..." rows={3}></textarea>
               </div>
             </div>
@@ -615,26 +615,26 @@ export default function CreateInvoicePage() {
                 </div>
 
                 <div className="space-y-5">
-                   <div className="grid grid-cols-12 text-[10px] font-black uppercase tracking-widest text-on-surface-variant border-b border-surface-container pb-2 px-1">
-                      <span className="col-span-7">Description</span>
-                      <span className="col-span-2 text-center">Qty</span>
-                      <span className="col-span-3 text-right">Amount</span>
-                   </div>
-                   
-                   {formData.items.map((it, i) => (
+                  <div className="grid grid-cols-12 text-[10px] font-black uppercase tracking-widest text-on-surface-variant border-b border-surface-container pb-2 px-1">
+                    <span className="col-span-7">Description</span>
+                    <span className="col-span-2 text-center">Qty</span>
+                    <span className="col-span-3 text-right">Amount</span>
+                  </div>
+
+                  {formData.items.map((it, i) => (
                     <div key={i} className="grid grid-cols-12 gap-2 text-sm">
-                       <div className="col-span-7">
-                          <p className="font-bold text-on-surface">{it.description || 'Service Description'}</p>
-                          <p className="text-[10px] text-on-surface-variant font-bold">₦ {Number(it.unitPrice || 0).toLocaleString()} per unit</p>
-                       </div>
-                       <div className="col-span-2 text-center flex items-center justify-center">
-                          <span className="font-bold text-on-surface-variant">×{it.quantity}</span>
-                       </div>
-                       <div className="col-span-3 text-right flex items-center justify-end">
-                          <p className="font-black text-on-surface">₦ {(Number(it.unitPrice || 0) * Number(it.quantity || 1)).toLocaleString()}</p>
-                       </div>
+                      <div className="col-span-7">
+                        <p className="font-bold text-on-surface">{it.description || 'Service Description'}</p>
+                        <p className="text-[10px] text-on-surface-variant font-bold">₦ {Number(it.unitPrice || 0).toLocaleString()} per unit</p>
+                      </div>
+                      <div className="col-span-2 text-center flex items-center justify-center">
+                        <span className="font-bold text-on-surface-variant">×{it.quantity}</span>
+                      </div>
+                      <div className="col-span-3 text-right flex items-center justify-end">
+                        <p className="font-black text-on-surface">₦ {(Number(it.unitPrice || 0) * Number(it.quantity || 1)).toLocaleString()}</p>
+                      </div>
                     </div>
-                   ))}
+                  ))}
                 </div>
 
                 <div className="pt-8 border-t-2 border-primary/5 space-y-4">
@@ -643,8 +643,8 @@ export default function CreateInvoicePage() {
                     <div className="text-right">
                       <span className="text-3xl font-black text-primary tracking-tighter font-headline">₦ {Number(formData.amount || 0).toLocaleString()}</span>
                       <div className="flex items-center gap-1 mt-1 justify-end text-error">
-                         <span className="material-symbols-outlined text-[10px]">schedule</span>
-                         <p className="text-[10px] font-bold uppercase tracking-tighter">Pay by {formData.dueDate || 'Immediate'}</p>
+                        <span className="material-symbols-outlined text-[10px]">schedule</span>
+                        <p className="text-[10px] font-bold uppercase tracking-tighter">Pay by {formData.dueDate || 'Immediate'}</p>
                       </div>
                     </div>
                   </div>
