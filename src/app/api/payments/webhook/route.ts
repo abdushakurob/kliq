@@ -6,103 +6,104 @@ import User from "@/models/User";
 
 export async function POST(req: Request) {
   try {
-    // Note: In production you MUST verify the Squad Security Signature in headers!
-    // const squadSignature = req.headers.get("x-squad-signature");
-
     const payload = await req.json();
+    
+    // 🔍 1. VERBOSE LOGGING - See exactly what Squad sends
     console.log("-----------------------------------------");
-    console.log("📥 RECEIVED SQUAD WEBHOOK");
-    console.log("Event Type:", payload.Event || payload.event);
-    console.log("Payload Body:", JSON.stringify(payload.Body || payload.body, null, 2));
-
-    const event = payload.Event || payload.event;
+    console.log("📥 WEBHOOK RECEIVED AT:", new Date().toISOString());
+    console.log("Event:", payload.Event || payload.event);
+    
     const body = payload.Body || payload.body;
-
-    // Squad typical event structure
-    // Success events can be 'charge_successful' (official) or 'charge.completed' (some docs)
-    if (event === 'charge_successful' || event === 'charge.completed' || event === 'charge_successful') {
-      const transactionRef = body?.transaction_ref;
-      
-      // Extraction of meta/metadata
-      const meta = body?.meta || body?.metadata;
-      const id = meta?.invoiceId;
-
-      console.log("Looking for Invoice ID:", id);
-
-      if (id) {
-        await dbConnect();
-        User.init(); // Explicitly init user so mongoose can populate it
-
-        // Find the invoice: try by ID first, then by invoiceNumber (human ref)
-        let invoice = await Invoice.findById(id).populate("userId");
-        if (!invoice) {
-          console.log("Mongoose ID match failed, trying Invoice Number search...");
-          invoice = await Invoice.findOne({ invoiceNumber: id }).populate("userId");
-        }
-
-        if (invoice) {
-          console.log("✅ MATCH FOUND:", invoice.invoiceNumber);
-          
-          if (invoice.status === "paid") {
-             console.log("⚠️ INVOICE IS ALREADY PAID. Skipping update.");
-             return NextResponse.json({ success: true, message: "Already processed" });
-          }
-
-          // Mark as paid
-          invoice.status = "paid";
-          await invoice.save();
-          console.log("Database status updated to PAID");
-
-          // Create a standalone transaction log
-          await Transaction.create({
-            invoiceId: invoice._id,
-            amount: Number(body?.amount || 0) / 100, // Converts Kobo back to Naira
-            paymentProvider: "squad",
-            providerTransactionId: transactionRef,
-            status: "success",
-            metadata: payload
-          });
-          console.log("Transaction log created");
-
-          // Telegram Notification Logic
-          const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
-          const userDoc = (invoice.userId as any);
-          const telegramId = userDoc?.telegramId; // The numeric chat ID
-          const isConnected = !!userDoc?.telegramConnectedAt;
-
-          if (telegramBotToken && telegramId && isConnected) {
-            const message = `🎉 *Payment Received!*\n\nInvoice: ${invoice.invoiceNumber}\nAmount: ₦${Number(invoice.amount).toLocaleString()}\nService: ${invoice.serviceDescription}\n\nThe payment has been secured successfully by Squad.`;
-
-            try {
-              await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  chat_id: telegramId,
-                  text: message,
-                  parse_mode: "Markdown"
-                })
-              });
-              console.log("Telegram notification pushed to handle", userDoc.telegramHandle);
-            } catch (teleErr) {
-              console.error("Failed to push Telegram notification", teleErr);
-            }
-          }
-        } else {
-          console.error("❌ NO MATCHING INVOICE FOUND FOR ID:", id);
-        }
-      } else {
-        console.error("❌ NO INVOICE ID FOUND IN PAYLOAD METADATA");
-      }
-    } else {
-      console.log("ℹ️ SKIPPING EVENT:", event);
+    const event = payload.Event || payload.event;
+    
+    // We only care about success
+    if (event !== 'charge_successful' && event !== 'charge.completed') {
+      console.log("ℹ️ Skipping non-success event:", event);
+      return NextResponse.json({ success: true, message: "Ignored event" });
     }
+
+    // 🔍 2. IDENTIFIER EXTRACTION (The "One Flow")
+    // We rely ONLY on the invoiceId we put in metadata
+    let rawMeta = body?.meta || body?.metadata;
+    let meta = rawMeta;
+
+    // Handle cases where providers stringify the metadata object
+    if (typeof rawMeta === 'string') {
+      try {
+        meta = JSON.parse(rawMeta);
+      } catch (e) {
+        console.error("Failed to parse stringified metadata");
+      }
+    }
+
+    const invoiceId = meta?.invoiceId;
+    console.log("Targeting Invoice ID:", invoiceId);
+
+    if (!invoiceId) {
+      console.error("❌ CRITICAL: No invoiceId found in payload metadata.");
+      return NextResponse.json({ success: false, error: "No invoice identifier" }, { status: 400 });
+    }
+
+    // 🔍 3. DATABASE UPDATE
+    await dbConnect();
+    // Ensure User model is loaded for population
+    if (!mongoose.models.User) {
+        await User.init();
+    }
+
+    const invoice = await Invoice.findById(invoiceId).populate("userId");
+
+    if (!invoice) {
+      console.error("❌ DATABASE MISMATCH: No invoice found with ID:", invoiceId);
+      return NextResponse.json({ success: false, error: "Invoice not found" }, { status: 404 });
+    }
+
+    if (invoice.status === "paid") {
+      console.log("✅ Invoice was already marked as PAID.");
+      return NextResponse.json({ success: true, message: "Already processed" });
+    }
+
+    // UPDATE STATUS
+    invoice.status = "paid";
+    await invoice.save();
+    console.log("✅ DB UPDATED: Status set to PAID for", invoice.invoiceNumber);
+
+    // 🔍 4. TELEGRAM NOTIFICATION (Async - don't block the response)
+    const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+    const user = invoice.userId as any;
+    
+    if (telegramBotToken && user?.telegramId && user?.telegramConnectedAt) {
+      const tgMessage = `💰 *Payment Confirmed!*\n\nInvoice: ${invoice.invoiceNumber}\nAmount: ₦${Number(invoice.amount).toLocaleString()}\nClient: ${(invoice as any).clientId?.name || 'Your Client'}\n\nYour dashboard has been updated.`;
+      
+      fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: user.telegramId,
+          text: tgMessage,
+          parse_mode: "Markdown"
+        })
+      }).catch(err => console.error("Telegram notification failed", err));
+    }
+
+    // 🔍 5. LOG TRANSACTION
+    await Transaction.create({
+      invoiceId: invoice._id,
+      amount: Number(body?.amount || 0) / 100,
+      paymentProvider: "squad",
+      providerTransactionId: body?.transaction_ref || body?.transaction_reference,
+      status: "success",
+      metadata: payload
+    }).catch(err => console.error("Failed to create transaction record", err));
 
     console.log("-----------------------------------------");
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error("Webhook processing error", error);
-    return NextResponse.json({ error: "Failed to process webhook" }, { status: 500 });
+    console.error("❌ WEBHOOK CRASH:", error.message);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+// Helper to ensure mongoose types are available without full import overhead here
+import mongoose from "mongoose";

@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
 import Client from "@/models/Client";
 import User from "@/models/User";
+import PaymentForm from "@/components/PaymentForm";
 
 // Force Next.js to dynamically render this page (never cache public invoice links)
 export const dynamic = 'force-dynamic';
@@ -105,20 +106,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
                 </div>
 
                 {!isPaid ? (
-                  <form action={`/api/payments/checkout`} method="POST" className="w-full sm:w-auto">
-                    <input type="hidden" name="invoiceId" value={serialized._id} />
-                    <button 
-                      type="submit"
-                      className="w-full sm:w-auto px-10 h-16 rounded-2xl bg-primary text-white font-bold text-lg flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20"
-                    >
-                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
-                      Pay Securely
-                    </button>
-                    <p className="text-center sm:text-right text-[10px] text-on-surface-variant mt-2 font-medium flex items-center justify-center sm:justify-end gap-1">
-                      <span className="material-symbols-outlined text-[12px]">verified_user</span>
-                      Protected by Squad
-                    </p>
-                  </form>
+                  <PaymentForm invoiceId={serialized._id} />
                 ) : (
                   <button disabled className="w-full sm:w-auto px-10 h-16 rounded-2xl bg-surface-container-highest text-on-surface-variant font-bold text-lg flex items-center justify-center gap-2 cursor-not-allowed">
                      Paid in Full

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
 import Client from "@/models/Client";
+import User from "@/models/User";
 import { SquadProvider } from "@/lib/payments/providers/SquadProvider";
 
 export async function POST(req: Request) {
@@ -14,12 +15,14 @@ export async function POST(req: Request) {
     }
 
     await dbConnect();
+    User.init();
     Client.init();
 
-    const invoice = await Invoice.findById(invoiceId).populate("clientId");
+    const invoice = await Invoice.findById(invoiceId).populate("clientId").populate("userId");
     
     if (!invoice) return NextResponse.redirect(new URL("/?error=not_found", req.url));
     
+    const userDoc = invoice.userId as any;
     if (invoice.status === "paid") {
       return NextResponse.redirect(new URL(`/pay/${invoiceId}?error=already_paid`, req.url));
     }
@@ -30,8 +33,8 @@ export async function POST(req: Request) {
       invoiceId: invoice._id.toString(),
       invoiceNumber: invoice.invoiceNumber,
       amount: Number(invoice.amount),
-      customerEmail: (invoice.clientId as any)?.email || "customer@example.com",
-      customerName: (invoice.clientId as any)?.name || "Valued Customer",
+      customerEmail: userDoc?.email || "merchant@example.com",
+      customerName: userDoc?.name || "Kliq Merchant",
       description: invoice.serviceDescription || "Kliq Invoicing Services"
     });
 
