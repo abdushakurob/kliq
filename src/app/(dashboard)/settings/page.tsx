@@ -14,8 +14,37 @@ export default function SettingsPage() {
     telegramHandle: "",
     whatsappId: "",
     telegramVerificationCode: "",
-    telegramConnected: false
+    telegramConnected: false,
+    payoutBankCode: "",
+    payoutAccountNumber: "",
+    payoutAccountName: ""
   });
+
+  const [isLookingUp, setIsLookingUp] = useState(false);
+
+  const banks = [
+    { name: "Access Bank", code: "044" },
+    { name: "Citibank", code: "023" },
+    { name: "Ecobank Nigeria", code: "050" },
+    { name: "Fidelity Bank", code: "070" },
+    { name: "First Bank of Nigeria", code: "011" },
+    { name: "First City Monument Bank", code: "214" },
+    { name: "Guaranty Trust Bank", code: "058" },
+    { name: "Heritage Bank", code: "030" },
+    { name: "Keystone Bank", code: "082" },
+    { name: "PalmPay", code: "999991" },
+    { name: "Polaris Bank", code: "076" },
+    { name: "Providus Bank", code: "101" },
+    { name: "Stanbic IBTC Bank", code: "221" },
+    { name: "Standard Chartered Bank", code: "068" },
+    { name: "Sterling Bank", code: "232" },
+    { name: "Suntrust Bank", code: "100" },
+    { name: "Union Bank of Nigeria", code: "032" },
+    { name: "United Bank for Africa", code: "033" },
+    { name: "Unity Bank", code: "215" },
+    { name: "Wema Bank", code: "035" },
+    { name: "Zenith Bank", code: "057" },
+  ];
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -31,7 +60,10 @@ export default function SettingsPage() {
               telegramHandle: data.user.telegramHandle || "",
               whatsappId: data.user.whatsappId || "",
               telegramVerificationCode: data.user.telegramVerificationCode || "",
-              telegramConnected: !!data.user.telegramConnected
+              telegramConnected: !!data.user.telegramConnected,
+              payoutBankCode: data.user.payoutBankCode || "",
+              payoutAccountNumber: data.user.payoutAccountNumber || "",
+              payoutAccountName: data.user.payoutAccountName || ""
             });
           }
         }
@@ -44,8 +76,32 @@ export default function SettingsPage() {
     fetchUser();
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const lookupAccount = async () => {
+    if (formData.payoutAccountNumber.length !== 10 || !formData.payoutBankCode) return;
+    
+    setIsLookingUp(true);
+    try {
+      const res = await fetch("/api/withdrawals/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bank_code: formData.payoutBankCode,
+          account_number: formData.payoutAccountNumber
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.account_name) {
+        setFormData(prev => ({ ...prev, payoutAccountName: data.account_name }));
+      }
+    } catch (e) {
+      console.error("Account lookup failed", e);
+    } finally {
+      setIsLookingUp(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,7 +127,10 @@ export default function SettingsPage() {
             telegramHandle: data.user.telegramHandle || "",
             whatsappId: data.user.whatsappId || "",
             telegramVerificationCode: data.user.telegramVerificationCode || "",
-            telegramConnected: !!data.user.telegramConnected
+            telegramConnected: !!data.user.telegramConnected,
+            payoutBankCode: data.user.payoutBankCode || "",
+            payoutAccountNumber: data.user.payoutAccountNumber || "",
+            payoutAccountName: data.user.payoutAccountName || ""
           });
         }
       } else {
@@ -149,6 +208,60 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
+
+                <h2 className="text-xl font-bold font-headline mt-10 mb-6 border-b border-surface-container-low pb-4 pt-4">Payout Settings</h2>
+                <div className="p-6 bg-secondary-container/10 rounded-2xl border border-secondary-container/20 mb-6 font-medium text-sm text-on-secondary-container leading-relaxed">
+                  Enter the bank account where you want to receive your earnings. We use this for all manual withdrawals.
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">
+                      Bank Name
+                    </label>
+                    <select
+                      name="payoutBankCode"
+                      value={formData.payoutBankCode}
+                      onChange={handleChange}
+                      className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 font-medium text-on-surface focus:ring-2 focus:ring-primary/20 transition-all outline-none h-12"
+                    >
+                      <option value="">Select Bank</option>
+                      {banks.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">
+                      Account Number
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="payoutAccountNumber"
+                        value={formData.payoutAccountNumber}
+                        onChange={handleChange}
+                        onBlur={lookupAccount}
+                        maxLength={10}
+                        className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 font-medium text-on-surface focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                        placeholder="10 Digits"
+                      />
+                      {isLookingUp && (
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                          <span className="material-symbols-outlined animate-spin text-primary text-sm">progress_activity</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {formData.payoutAccountName && (
+                  <div className="p-4 bg-tertiary-container/20 border border-tertiary-container/30 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                    <span className="material-symbols-outlined text-tertiary text-lg">verified</span>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Verified Account Name</p>
+                      <p className="text-sm font-bold text-on-tertiary-container">{formData.payoutAccountName}</p>
+                    </div>
+                  </div>
+                )}
 
                 <h2 className="text-xl font-bold font-headline mt-10 mb-6 border-b border-surface-container-low pb-4 pt-4">App Integrations</h2>
 

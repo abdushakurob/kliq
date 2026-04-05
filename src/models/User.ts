@@ -14,6 +14,9 @@ export interface IUser extends Document {
   telegramVerificationExpires?: Date;
   whatsappId?: string;
   whatsappConnectedAt?: Date;
+  payoutBankCode?: string;
+  payoutAccountNumber?: string;
+  payoutAccountName?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,10 +32,13 @@ const UserSchema: Schema = new Schema(
     telegramId: { type: String, unique: true, sparse: true },
     telegramHandle: { type: String },
     telegramConnectedAt: { type: Date },
-    telegramVerificationCode: { type: String, unique: true, sparse: true },
+    telegramVerificationCode: { type: String },
     telegramVerificationExpires: { type: Date },
     whatsappId: { type: String, unique: true, sparse: true },
     whatsappConnectedAt: { type: Date },
+    payoutBankCode: { type: String },
+    payoutAccountNumber: { type: String },
+    payoutAccountName: { type: String },
   },
   { timestamps: true }
 );

@@ -3,19 +3,38 @@ import dbConnect from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
 import Transaction from "@/models/Transaction";
 import User from "@/models/User";
+import crypto from "crypto";
 
 export async function POST(req: Request) {
   try {
-    const payload = await req.json();
-    
-    // 🔍 1. VERBOSE LOGGING - See exactly what Squad sends
+    // 🛡️ 1. SECURITY: VERIFY SIGNATURE (REQUIRED FOR PROD)
+    const signature = req.headers.get("x-squad-signature");
+    const secret = process.env.SQAD_TEST_KEY; // This is your Secret Key
+
+    if (!secret) {
+      console.error(" SQUAD SECRET KEY NOT CONFIGURED");
+      return NextResponse.json({ error: "Configuration Error" }, { status: 500 });
+    }
+
+    const rawBody = await req.text();
+    const hmac = crypto.createHmac("sha512", secret);
+    const computedSignature = hmac.update(rawBody).digest("hex");
+
+    if (computedSignature.toLowerCase() !== signature?.toLowerCase()) {
+      console.error(" INVALID WEBHOOK SIGNATURE. Mismatch detected.");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = JSON.parse(rawBody);
+
+    // 🔍 2. VERBOSE LOGGING - See exactly what Squad sends
     console.log("-----------------------------------------");
     console.log("📥 WEBHOOK RECEIVED AT:", new Date().toISOString());
     console.log("Event:", payload.Event || payload.event);
-    
+
     const body = payload.Body || payload.body;
     const event = payload.Event || payload.event;
-    
+
     // We only care about success
     if (event !== 'charge_successful' && event !== 'charge.completed') {
       console.log("ℹ️ Skipping non-success event:", event);
@@ -48,7 +67,7 @@ export async function POST(req: Request) {
     await dbConnect();
     // Ensure User model is loaded for population
     if (!mongoose.models.User) {
-        await User.init();
+      await User.init();
     }
 
     const invoice = await Invoice.findById(invoiceId).populate("userId");
@@ -71,10 +90,10 @@ export async function POST(req: Request) {
     // 🔍 4. TELEGRAM NOTIFICATION (Async - don't block the response)
     const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
     const user = invoice.userId as any;
-    
+
     if (telegramBotToken && user?.telegramId && user?.telegramConnectedAt) {
-      const tgMessage = `💰 *Payment Confirmed!*\n\nInvoice: ${invoice.invoiceNumber}\nAmount: ₦${Number(invoice.amount).toLocaleString()}\nClient: ${(invoice as any).clientId?.name || 'Your Client'}\n\nYour dashboard has been updated.`;
-      
+      const tgMessage = ` *Payment Confirmed!*\n\nInvoice: ${invoice.invoiceNumber}\nAmount: ₦${Number(invoice.amount).toLocaleString()}\nClient: ${(invoice as any).clientId?.name || ''}\n\nYour dashboard has been updated.`;
+
       fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

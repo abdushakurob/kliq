@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     }
 
     await dbConnect();
-    const user = await User.findById((session.user as any).id, "name email phone telegramHandle whatsappId telegramVerificationCode telegramConnectedAt").lean();
+    const user = await User.findById((session.user as any).id, "name email phone telegramHandle whatsappId telegramVerificationCode telegramConnectedAt payoutBankCode payoutAccountNumber payoutAccountName").lean();
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -37,7 +37,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { name, phone, telegramHandle, whatsappId } = await req.json();
+    const { name, phone, telegramHandle, whatsappId, payoutBankCode, payoutAccountNumber, payoutAccountName } = await req.json();
 
     await dbConnect();
     
@@ -62,6 +62,11 @@ export async function PUT(req: Request) {
     user.name = name || user.name;
     user.phone = phone || user.phone;
     user.whatsappId = whatsappId || user.whatsappId;
+    
+    // Payout details
+    user.payoutBankCode = payoutBankCode || user.payoutBankCode;
+    user.payoutAccountNumber = payoutAccountNumber || user.payoutAccountNumber;
+    user.payoutAccountName = payoutAccountName || user.payoutAccountName;
 
     await user.save();
 
@@ -74,7 +79,10 @@ export async function PUT(req: Request) {
         telegramHandle: user.telegramHandle,
         whatsappId: user.whatsappId,
         telegramVerificationCode: user.telegramVerificationCode,
-        telegramConnected: !!user.telegramConnectedAt
+        telegramConnected: !!user.telegramConnectedAt,
+        payoutBankCode: user.payoutBankCode,
+        payoutAccountNumber: user.payoutAccountNumber,
+        payoutAccountName: user.payoutAccountName
       }
     }, { status: 200 });
   } catch (error: any) {

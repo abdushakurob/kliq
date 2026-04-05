@@ -40,8 +40,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             <h1 className="text-3xl font-extrabold tracking-tight text-on-surface font-headline flex items-center gap-3">
               Invoice Details
               <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${serialized.status === 'paid' ? 'bg-secondary-container/30 text-secondary-fixed' :
-                  serialized.status === 'overdue' ? 'bg-error-container text-on-error-container' :
-                    'bg-surface-container-highest text-on-surface'
+                serialized.status === 'overdue' ? 'bg-error-container text-on-error-container' :
+                  'bg-surface-container-highest text-on-surface'
                 }`}>
                 {serialized.status}
               </span>
@@ -76,7 +76,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Bill To</p>
                   <p className="text-xl font-bold">{serialized.clientId?.name || 'Client Name'}</p>
-                  <p className="text-sm text-on-surface-variant">{serialized.clientId?.email || 'client@email.com'}</p>
+                  <p className="text-sm text-on-surface-variant">{serialized.clientId?.email || ''}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Amount Due</p>
@@ -118,10 +118,10 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
         {/* Right Side: Actions & Links */}
         <section className="lg:col-span-4 space-y-6">
-          <InvoiceActionsClient 
-            paymentLink={link} 
-            isPaid={serialized.status === 'paid'} 
-            invoiceId={serialized._id} 
+          <InvoiceActionsClient
+            paymentLink={link}
+            isPaid={serialized.status === 'paid'}
+            invoiceId={serialized._id}
             clientPhone={serialized.clientId?.phone}
           />
 

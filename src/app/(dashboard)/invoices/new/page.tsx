@@ -30,6 +30,10 @@ export default function CreateInvoicePage() {
   const [isListening, setIsListening] = useState(false);
   const [isLiveMode, setIsLiveMode] = useState(false);
 
+  // Auto-scroll logic for transcript
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+
   // Gemini Live Hook
   const {
     isConnecting,
@@ -71,6 +75,13 @@ export default function CreateInvoicePage() {
     }
     \`\`\``
   );
+
+  // Auto-scroll logic for transcript
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, liveTranscript, liveMessages]);
 
   // Transfer Live Errors to UI
   useEffect(() => {
@@ -261,7 +272,10 @@ export default function CreateInvoicePage() {
               </div>
 
               {/* Chat View / Transcript */}
-              <div className="mb-6 space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar min-h-[100px]">
+              <div
+                ref={scrollRef}
+                className="mb-6 space-y-4 max-h-[500px] overflow-y-auto pr-2 min-h-[100px] scroll-smooth selection:bg-white/20 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-white/5 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/30"
+              >
                 {isLiveMode ? (
                   // BIG BOLD Live Transcript View
                   <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -343,7 +357,7 @@ export default function CreateInvoicePage() {
                     )}
 
                     <p className="text-sm font-bold text-secondary-fixed-dim animate-pulse text-center">
-                      {isConnecting ? 'Connecting to Gemini...' : isLiveListening ? 'Gemini is listening in real-time...' : 'Click to start Live Audio convo'}
+                      {isConnecting ? 'Connecting to Kliq AI...' : isLiveListening ? 'Kliq is listening in real-time...' : 'Click to start Live Audio convo'}
                     </p>
                   </div>
                 ) : (
@@ -460,7 +474,7 @@ export default function CreateInvoicePage() {
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Bill To</p>
                     <p className="text-lg font-bold">{formData.clientName || 'Client Name'}</p>
-                    <p className="text-sm text-on-surface-variant">{formData.clientEmail || 'client@email.com'}</p>
+                    <p className="text-sm text-on-surface-variant">{formData.clientEmail || ''}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Issue Date</p>
