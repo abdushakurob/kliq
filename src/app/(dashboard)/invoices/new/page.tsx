@@ -30,14 +30,15 @@ export default function CreateInvoicePage() {
   const [isLiveMode, setIsLiveMode] = useState(false);
 
   // Gemini Live Hook
-  const { 
-    isListening: isLiveListening, 
-    messages: liveMessages, 
+  const {
+    isConnecting,
+    isListening: isLiveListening,
+    messages: liveMessages,
     error: liveError,
-    startSession: startLiveSession, 
-    stopSession: stopLiveSession 
+    startSession: startLiveSession,
+    stopSession: stopLiveSession
   } = useGeminiLive(
-    process.env.NEXT_PUBLIC_RELAY_URL || "", 
+    process.env.NEXT_PUBLIC_RELAY_URL || "",
     `You are the Kliq Pricing Coach. Gather Client Name, Service, and Amount. Today is ${new Date().toISOString()}. Once complete, output the JSON: \`\`\`json { "clientName": "...", "serviceDetails": "...", "amount": 0, "dueDate": "YYYY-MM-DD" } \`\`\``
   );
 
@@ -51,20 +52,20 @@ export default function CreateInvoicePage() {
     if (liveMessages.length > 0) {
       const lastLive = liveMessages[liveMessages.length - 1];
       setMessages(prev => [...prev, lastLive]);
-      
+
       // Attempt to parse JSON from live response
       const jsonMatch = lastLive.content.match(/```json\n([\s\S]*?)\n```/);
       if (jsonMatch) {
-         try {
-           const parsed = JSON.parse(jsonMatch[1]);
-           setFormData(f => ({
-             ...f,
-             clientName: parsed.clientName || f.clientName,
-             serviceDescription: parsed.serviceDetails || f.serviceDescription,
-             amount: parsed.amount?.toString() || f.amount,
-             dueDate: parsed.dueDate || f.dueDate
-           }));
-         } catch(e) {}
+        try {
+          const parsed = JSON.parse(jsonMatch[1]);
+          setFormData(f => ({
+            ...f,
+            clientName: parsed.clientName || f.clientName,
+            serviceDescription: parsed.serviceDetails || f.serviceDescription,
+            amount: parsed.amount?.toString() || f.amount,
+            dueDate: parsed.dueDate || f.dueDate
+          }));
+        } catch (e) { }
       }
     }
   }, [liveMessages]);
@@ -76,7 +77,7 @@ export default function CreateInvoicePage() {
 
   const handleMagicInputSubmit = async () => {
     if (!magicInput.trim()) return;
-    
+
     const userText = magicInput.trim();
     const newHistory = [...messages, { role: "user", content: userText }];
     setMessages(newHistory);
@@ -88,12 +89,12 @@ export default function CreateInvoicePage() {
       let historyToSend = newHistory;
       // Filter out ANY model/assistant messages at the absolute beginning of the array
       while (historyToSend.length > 0 && historyToSend[0].role === "assistant") {
-         historyToSend = historyToSend.slice(1);
+        historyToSend = historyToSend.slice(1);
       }
 
       const historyPayload = historyToSend.map(m => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }]
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }]
       }));
 
       const res = await fetch("/api/ai/parse-invoice", {
@@ -105,7 +106,7 @@ export default function CreateInvoicePage() {
       if (!res.ok) throw new Error(data.error);
 
       if (data.reply) {
-         setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+        setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
       }
 
       if (data.parsed) {
@@ -192,88 +193,95 @@ export default function CreateInvoicePage() {
           <div className="p-8 rounded-3xl bg-primary text-white relative overflow-hidden group shadow-xl">
             <div className="relative z-10 w-full">
               <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
-                 <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-secondary-fixed text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                    <h3 className="text-sm font-bold tracking-widest text-primary-fixed uppercase">Kliq AI Assistant</h3>
-                 </div>
-                 <div className="flex items-center gap-4">
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        if (isLiveMode) {
-                          stopLiveSession();
-                          setIsLiveMode(false);
-                        } else {
-                          setIsLiveMode(true);
-                        }
-                      }}
-                      className={`text-[10px] uppercase tracking-widest font-black px-3 py-1 rounded-full transition-all ${isLiveMode ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                    >
-                      {isLiveMode ? 'Exit Live' : 'Go Live'}
-                    </button>
-                    <div className={`${isLiveMode || isListening ? 'bg-secondary-fixed' : 'bg-surface-container-highest/20'} text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full transition-colors`}>
-                      {isLiveMode ? 'Live Relay' : isListening ? 'Listening' : 'Ready'}
-                    </div>
-                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-secondary-fixed text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                  <h3 className="text-sm font-bold tracking-widest text-primary-fixed uppercase">Kliq AI Assistant</h3>
+                </div>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isLiveMode) {
+                        stopLiveSession();
+                        setIsLiveMode(false);
+                      } else {
+                        setIsLiveMode(true);
+                      }
+                    }}
+                    className={`text-[10px] uppercase tracking-widest font-black px-3 py-1 rounded-full transition-all ${isLiveMode ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                  >
+                    {isLiveMode ? 'Exit Live' : 'Go Live'}
+                  </button>
+                  <div className={`${isLiveMode || isListening ? 'bg-secondary-fixed' : 'bg-surface-container-highest/20'} text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full transition-colors`}>
+                    {isLiveMode ? 'Live Relay' : isListening ? 'Listening' : 'Ready'}
+                  </div>
+                </div>
               </div>
 
               {/* Chat View */}
               <div className="mb-6 space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {messages.map((msg, i) => (
-                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                     <div className={`p-4 rounded-3xl max-w-[85%] text-sm font-medium leading-relaxed ${msg.role === 'user' ? 'bg-secondary-fixed text-on-secondary-fixed shadow-lg rounded-tr-sm' : 'bg-white/10 text-white rounded-tl-sm backdrop-blur-md border border-white/5'}`}>
-                       {msg.content}
-                     </div>
-                   </div>
+                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`p-4 rounded-3xl max-w-[85%] text-sm font-medium leading-relaxed ${msg.role === 'user' ? 'bg-secondary-fixed text-on-secondary-fixed shadow-lg rounded-tr-sm' : 'bg-white/10 text-white rounded-tl-sm backdrop-blur-md border border-white/5'}`}>
+                      {msg.content}
+                    </div>
+                  </div>
                 ))}
-                
+
                 {isLiveMode && (
-                   <div className="flex justify-center py-4">
-                      <div className="flex items-end gap-1 h-8">
-                         {[...Array(5)].map((_, i) => (
-                           <div key={i} className={`w-1 bg-secondary-fixed rounded-full animate-bounce h-${(i % 3) + 4}`} style={{ animationDelay: `${i * 0.1}s` }}></div>
-                         ))}
-                      </div>
-                   </div>
+                  <div className="flex justify-center py-4">
+                    <div className="flex items-end gap-1 h-8">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className={`w-1 bg-secondary-fixed rounded-full animate-bounce h-${(i % 3) + 4}`} style={{ animationDelay: `${i * 0.1}s` }}></div>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {isParsingAI && (
-                   <div className="flex justify-start">
-                     <div className="p-4 rounded-3xl bg-white/10 text-white rounded-tl-sm text-sm font-medium flex gap-2 items-center">
-                        <span className="w-2 h-2 rounded-full bg-white animate-bounce"></span>
-                        <span className="w-2 h-2 rounded-full bg-white animate-bounce delay-75"></span>
-                        <span className="w-2 h-2 rounded-full bg-white animate-bounce delay-150"></span>
-                     </div>
-                   </div>
+                  <div className="flex justify-start">
+                    <div className="p-4 rounded-3xl bg-white/10 text-white rounded-tl-sm text-sm font-medium flex gap-2 items-center">
+                      <span className="w-2 h-2 rounded-full bg-white animate-bounce"></span>
+                      <span className="w-2 h-2 rounded-full bg-white animate-bounce delay-75"></span>
+                      <span className="w-2 h-2 rounded-full bg-white animate-bounce delay-150"></span>
+                    </div>
+                  </div>
                 )}
               </div>
 
               <div className="relative mt-2">
                 {isLiveMode ? (
                   <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-8 flex flex-col items-center justify-center gap-6 group">
-                     {!isLiveListening ? (
+                    {!isLiveListening && !isConnecting ? (
+                      <button 
+                        type="button"
+                        onClick={startLiveSession}
+                        className="w-20 h-20 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center shadow-2xl hover:scale-105 transition-transform"
+                      >
+                        <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
+                      </button>
+                    ) : isConnecting ? (
+                      // Connecting spinner — shown between click and setupComplete
+                      <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-4xl text-white animate-spin">progress_activity</span>
+                      </div>
+                    ) : (
+                      // Active/stop button
+                      <div className="relative flex items-center justify-center">
+                        <div className="absolute w-24 h-24 bg-secondary-fixed/20 rounded-full animate-ping"></div>
                         <button 
                           type="button"
-                          onClick={startLiveSession}
-                          className="w-20 h-20 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center shadow-2xl hover:scale-105 transition-transform"
+                          onClick={stopLiveSession}
+                          className="relative w-20 h-20 rounded-full bg-error text-white flex items-center justify-center shadow-2xl"
                         >
-                           <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
+                          <span className="material-symbols-outlined text-4xl">stop</span>
                         </button>
-                     ) : (
-                        <div className="relative flex items-center justify-center">
-                           <div className="absolute w-24 h-24 bg-secondary-fixed/20 rounded-full animate-ping"></div>
-                           <button 
-                             type="button"
-                             onClick={stopLiveSession}
-                             className="relative w-20 h-20 rounded-full bg-error text-white flex items-center justify-center shadow-2xl"
-                           >
-                              <span className="material-symbols-outlined text-4xl">stop</span>
-                           </button>
-                        </div>
-                     )}
-                     <p className="text-sm font-bold text-secondary-fixed-dim animate-pulse">
-                        {isLiveListening ? 'Gemini is listening in real-time...' : 'Click to start Live Audio convo'}
-                     </p>
+                      </div>
+                    )}
+
+                    <p className="text-sm font-bold text-secondary-fixed-dim animate-pulse text-center">
+                      {isConnecting ? 'Connecting to Gemini...' : isLiveListening ? 'Gemini is listening in real-time...' : 'Click to start Live Audio convo'}
+                    </p>
                   </div>
                 ) : (
                   <>
@@ -292,7 +300,7 @@ export default function CreateInvoicePage() {
                     ></textarea>
                     <div className="absolute bottom-4 right-4 flex items-center gap-2">
                       <button type="button" onClick={handleMagicInputSubmit} className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low text-white hover:bg-surface-container transition-colors">
-                         <span className="material-symbols-outlined text-sm">send</span>
+                        <span className="material-symbols-outlined text-sm">send</span>
                       </button>
                     </div>
                   </>
