@@ -218,7 +218,7 @@ export default function SettingsPage() {
                         </div>
 
                         <a
-                          href={`https://t.me/KliqInvoicingBot?start`}
+                          href={`https://t.me/usekliq_bot?start`}
                           target="_blank"
                           className="w-full h-11 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-tertiary/20"
                         >
