@@ -12,7 +12,9 @@ export default function SettingsPage() {
     email: "",
     phone: "",
     telegramId: "",
-    whatsappId: ""
+    whatsappId: "",
+    telegramVerificationCode: "",
+    telegramConnected: false
   });
 
   useEffect(() => {
@@ -27,7 +29,9 @@ export default function SettingsPage() {
               email: data.user.email || "",
               phone: data.user.phone || "",
               telegramId: data.user.telegramId || "",
-              whatsappId: data.user.whatsappId || ""
+              whatsappId: data.user.whatsappId || "",
+              telegramVerificationCode: data.user.telegramVerificationCode || "",
+              telegramConnected: !!data.user.telegramConnected
             });
           }
         }
@@ -152,17 +156,40 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">
-                      Telegram ID
+                    <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2 flex items-center justify-between">
+                      <span>Telegram Handle</span>
+                      {formData.telegramConnected ? (
+                        <span className="text-[10px] text-primary flex items-center gap-1 font-black">
+                          <span className="material-symbols-outlined text-[12px]">verified</span>
+                          CONNECTED
+                        </span>
+                      ) : formData.telegramId ? (
+                        <span className="text-[10px] text-tertiary flex items-center gap-1 font-black">
+                          <span className="material-symbols-outlined text-[12px]">pending</span>
+                          VERIFICATION PENDING
+                        </span>
+                      ) : null}
                     </label>
                     <input
                       type="text"
                       name="telegramId"
                       value={formData.telegramId}
                       onChange={handleChange}
-                      className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 font-medium text-on-surface focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                      className={`w-full bg-surface-container-low border-none rounded-xl px-4 py-3 font-medium text-on-surface focus:ring-2 focus:ring-primary/20 transition-all outline-none ${formData.telegramConnected ? 'ring-2 ring-primary/20' : ''}`}
                       placeholder="@username"
                     />
+                    
+                    {formData.telegramId && !formData.telegramConnected && formData.telegramVerificationCode && (
+                      <div className="mt-4 p-4 bg-tertiary-container/30 rounded-2xl border border-tertiary-container/50 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <p className="text-xs font-bold text-on-tertiary-container mb-2 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-sm">info</span>
+                          Complete Connection
+                        </p>
+                        <p className="text-xs text-on-surface-variant leading-relaxed">
+                          Send <code className="bg-white/50 px-2 py-0.5 rounded font-black text-tertiary">/verify {formData.telegramVerificationCode}</code> to our bot <a href={`https://t.me/KliqInvoicingBot`} target="_blank" className="font-bold text-primary underline">@KliqInvoicingBot</a> to link your account.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

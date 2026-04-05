@@ -6,8 +6,11 @@ export interface IUser extends Document {
   password?: string;
   businessName?: string;
   image?: string;
+  phone?: string;
   telegramId?: string;
   telegramConnectedAt?: Date;
+  telegramVerificationCode?: string;
+  telegramVerificationExpires?: Date;
   whatsappId?: string;
   whatsappConnectedAt?: Date;
   createdAt: Date;
@@ -21,8 +24,11 @@ const UserSchema: Schema = new Schema(
     password: { type: String },
     businessName: { type: String },
     image: { type: String },
+    phone: { type: String },
     telegramId: { type: String, unique: true, sparse: true },
     telegramConnectedAt: { type: Date },
+    telegramVerificationCode: { type: String, unique: true, sparse: true },
+    telegramVerificationExpires: { type: Date },
     whatsappId: { type: String, unique: true, sparse: true },
     whatsappConnectedAt: { type: Date },
   },

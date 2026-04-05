@@ -40,10 +40,12 @@ export async function POST(req: Request) {
 
         // Telegram Notification Logic
         const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
-        const telegramId = (updatedInvoice?.userId as any)?.telegramId;
+        const userDoc = (updatedInvoice?.userId as any);
+        const telegramId = userDoc?.telegramId;
+        const isConnected = !!userDoc?.telegramConnectedAt;
 
-        if (telegramBotToken && telegramId && updatedInvoice) {
-          const message = `🎉 *Payment Received!*\n\nInvoice: ${updatedInvoice._id}\nAmount: ₦${Number(updatedInvoice.amount).toLocaleString()}\nService: ${(updatedInvoice as any).serviceDetails || 'Design Services'}\n\nThe payment has been secured successfully by Squad.`;
+        if (telegramBotToken && telegramId && isConnected && updatedInvoice) {
+          const message = `🎉 *Payment Received!*\n\nInvoice: ${updatedInvoice.invoiceNumber}\nAmount: ₦${Number(updatedInvoice.amount).toLocaleString()}\nService: ${updatedInvoice.serviceDescription}\n\nThe payment has been secured successfully by Squad.`;
 
           try {
             await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {

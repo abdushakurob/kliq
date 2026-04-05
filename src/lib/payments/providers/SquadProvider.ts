@@ -15,18 +15,49 @@ export class SquadProvider implements PaymentProvider {
   }
 
   async createPaymentLink(request: CreatePaymentLinkRequest): Promise<CreatePaymentLinkResponse> {
-    // Note: Squad API typically expects amount in kobo (multiply by 100)
     const amountInKobo = Math.round(request.amount * 100);
-    
-    // In a real implementation we might call specific Squad endpoints
-    // For now we simulate the API call structure conceptually
-    console.log(`[SquadProvider] Creating payment link for ${request.invoiceId} of amount ${amountInKobo}`);
+    const secretKey = process.env.SQAD_TEST_KEY;
 
-    // Example Mock Response for now
-    return {
-      paymentLinkId: `sq_link_${Date.now()}`,
-      paymentLinkUrl: `https://sandbox.squadco.com/pay/sq_link_${Date.now()}`,
-    };
+    if (!secretKey) {
+      throw new Error("Squad Secret Key is not configured in environment variables.");
+    }
+    
+    try {
+      const response = await fetch("https://sandbox-api-d.squadco.com/transaction/initiate", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${secretKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: amountInKobo,
+          email: request.customerEmail || "customer@example.com",
+          currency: "NGN",
+          initiate_type: "inline",
+          transaction_ref: `KLIQ_${request.invoiceId}_${Date.now()}`,
+          customer_name: request.customerName,
+          callback_url: `${process.env.NEXTAUTH_URL}/pay-success`,
+          metadata: {
+            invoiceId: request.invoiceId,
+            description: request.description
+          }
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.status !== 200) {
+        throw new Error(data.message || `Squad API error: ${response.statusText}`);
+      }
+
+      return {
+        paymentLinkId: data.data.transaction_ref,
+        paymentLinkUrl: data.data.checkout_url,
+      };
+    } catch (error: any) {
+      console.error("[SquadProvider] Failed to create payment link:", error);
+      throw error;
+    }
   }
 
   async verifyPayment(transactionId: string): Promise<VerifyPaymentResponse> {
