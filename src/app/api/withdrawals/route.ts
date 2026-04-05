@@ -55,10 +55,17 @@ export async function POST(req: Request) {
     }
 
     // 3. Initiate Squad Payout
-    const squadSecret = process.env.SQAD_TEST_KEY;
+    const squadSecret = process.env.SQUAD_SECRET_KEY || process.env.SQAD_TEST_KEY;
+    const isProduction = process.env.NODE_ENV === "production";
+    const baseUrl = isProduction 
+      ? "https://api-d.squadco.com" 
+      : "https://sandbox-api-d.squadco.com";
+      
     const reference = `WDL_${userId}_${Date.now()}`;
 
-    const squadRes = await fetch("https://sandbox-api-d.squadco.com/payout/transfer", {
+    console.log(`[Withdrawals] Initiating payout via ${baseUrl}`);
+
+    const squadRes = await fetch(`${baseUrl}/payout/transfer`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${squadSecret}`,
@@ -68,7 +75,7 @@ export async function POST(req: Request) {
         amount: Math.round(amount * 100), // Kobo
         bank_code: user.payoutBankCode,
         account_number: user.payoutAccountNumber,
-        account_name: user.payoutAccountName || "Kliq Merchant",
+        account_name: user.payoutAccountName || user.name || "Kliq Merchant",
         currency: "NGN",
         transaction_reference: reference
       })

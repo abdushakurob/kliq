@@ -16,14 +16,21 @@ export class SquadProvider implements PaymentProvider {
 
   async createPaymentLink(request: CreatePaymentLinkRequest): Promise<CreatePaymentLinkResponse> {
     const amountInKobo = Math.round(request.amount * 100);
-    const secretKey = process.env.SQAD_TEST_KEY;
+    // Prioritize production key, fallback to test key for local development
+    const secretKey = process.env.SQUAD_SECRET_KEY || process.env.SQAD_TEST_KEY;
+    const isProduction = process.env.NODE_ENV === "production";
+    const baseUrl = isProduction 
+      ? "https://api-d.squadco.com" 
+      : "https://sandbox-api-d.squadco.com";
 
     if (!secretKey) {
-      throw new Error("Squad Secret Key is not configured in environment variables.");
+      throw new Error("Squad Secret Key is not configured. Please set SQUAD_SECRET_KEY in environment variables.");
     }
     
     try {
-      const response = await fetch("https://sandbox-api-d.squadco.com/transaction/initiate", {
+      console.log(`[SquadProvider] Initiating transaction for ${request.invoiceId} via ${baseUrl}`);
+      
+      const response = await fetch(`${baseUrl}/transaction/initiate`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${secretKey}`,
@@ -31,10 +38,11 @@ export class SquadProvider implements PaymentProvider {
         },
         body: JSON.stringify({
           amount: amountInKobo,
-          email: request.customerEmail || "customer@example.com",
+          // 🛡️ USER REQUEST: Contact email sent to Squad should be YOUR email (the merchant), not the client's.
+          email: request.merchantEmail || request.customerEmail || "merchant@kliq.app",
           currency: "NGN",
           initiate_type: "inline",
-          transaction_ref: `KLIQ_${request.invoiceNumber}_${Date.now()}`,
+          transaction_ref: `KLIQ_${request.invoiceId}_${Date.now()}`,
           customer_name: request.customerName,
           callback_url: `${process.env.NEXTAUTH_URL}/pay-success?invoice_id=${request.invoiceId}`,
           metadata: {

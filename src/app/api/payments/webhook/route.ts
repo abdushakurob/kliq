@@ -8,20 +8,23 @@ import crypto from "crypto";
 export async function POST(req: Request) {
   try {
     // 🛡️ 1. SECURITY: VERIFY SIGNATURE (REQUIRED FOR PROD)
-    const signature = req.headers.get("x-squad-signature");
-    const secret = process.env.SQAD_TEST_KEY; // This is your Secret Key
+    // Squadco usually sends the HMAC-SHA512 signature in 'x-squad-encrypted-body' or 'x-squad-signature'
+    const signature = req.headers.get("x-squad-encrypted-body") || req.headers.get("x-squad-signature");
+    const secret = process.env.SQUAD_SECRET_KEY || process.env.SQAD_TEST_KEY;
 
     if (!secret) {
-      console.error(" SQUAD SECRET KEY NOT CONFIGURED");
+      console.error("[Webhook] ❌ SQUAD SECRET KEY NOT CONFIGURED");
       return NextResponse.json({ error: "Configuration Error" }, { status: 500 });
     }
 
     const rawBody = await req.text();
     const hmac = crypto.createHmac("sha512", secret);
-    const computedSignature = hmac.update(rawBody).digest("hex");
+    const computedSignature = hmac.update(rawBody).digest("hex").toUpperCase();
 
-    if (computedSignature.toLowerCase() !== signature?.toLowerCase()) {
-      console.error(" INVALID WEBHOOK SIGNATURE. Mismatch detected.");
+    if (!signature || computedSignature !== signature.toUpperCase()) {
+      console.error("[Webhook] ❌ INVALID SIGNATURE. Mismatch or missing header.");
+      console.log("[Webhook] Provided Signature:", signature);
+      console.log("[Webhook] Computed Signature:", computedSignature);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

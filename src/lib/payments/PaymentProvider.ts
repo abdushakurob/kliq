@@ -5,6 +5,7 @@ export interface CreatePaymentLinkRequest {
   currency?: string;
   customerName: string;
   customerEmail?: string;
+  merchantEmail?: string;
   description: string;
 }
 

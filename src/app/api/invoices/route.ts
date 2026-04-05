@@ -73,6 +73,7 @@ export async function POST(req: Request) {
           amount: Number(calculatedAmount),
           customerName: clientName,
           customerEmail: clientEmail,
+          merchantEmail: (session as any)?.user?.email || undefined,
           description: finalServiceDescription
         });
         paymentLinkId = linkRes.paymentLinkId;

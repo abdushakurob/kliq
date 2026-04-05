@@ -23,9 +23,19 @@ export default function CreateInvoicePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [magicInput, setMagicInput] = useState("");
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([
-    { role: "assistant", content: `Hello ${session?.user?.name?.split(' ')[0] || ''}! Ready to bill for your next project? Just tell me what you did and for whom.` }
-  ]);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  
+  useEffect(() => {
+    if (session?.user?.name && messages.length === 0) {
+      setMessages([
+        { role: "assistant", content: `Hello ${session.user.name.split(' ')[0]}! Ready to bill for your next project? Just tell me what you did and for whom.` }
+      ]);
+    } else if (!session && messages.length === 0) {
+      setMessages([
+        { role: "assistant", content: "Hello! Ready to bill for your next project? Just tell me what you did and for whom." }
+      ]);
+    }
+  }, [session, messages.length]);
   const [isParsingAI, setIsParsingAI] = useState(false);
   const [isLiveMode, setIsLiveMode] = useState(false);
 
@@ -326,25 +336,29 @@ export default function CreateInvoicePage() {
                 className="mb-6 space-y-4 max-h-[500px] overflow-y-auto pr-2 min-h-[100px] scroll-smooth selection:bg-white/20 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-white/5 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/30"
               >
                 {isLiveMode ? (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <div className="p-8">
-                      <div className="text-4xl md:text-5xl font-black leading-tight text-white italic transition-all duration-300">
-                        {liveTranscript.split(" ").map((word, index, arr) => {
-                          const isRecent = index >= arr.length - 7;
-                          return (
-                            <span
-                              key={index}
-                              className={`inline-block mr-[0.3em] transition-colors duration-500 ${isRecent ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,1)]' : 'text-white/40'}`}
-                            >
-                              {word}
-                            </span>
-                          );
-                        })}
-                        {isLiveListening && (
-                          <span className="inline-block w-4 h-[1em] bg-secondary-fixed ml-2 animate-pulse align-middle"></span>
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="p-12 min-h-[300px] flex items-center justify-center text-center">
+                      <div className="text-4xl md:text-5xl font-black leading-tight text-white italic transition-all duration-300 drop-shadow-sm">
+                        {liveTranscript ? (
+                          liveTranscript.split(" ").map((word, index, arr) => {
+                            const isRecent = index >= arr.length - 7;
+                            return (
+                              <span
+                                key={index}
+                                className={`inline-block mr-[0.3em] transition-all duration-500 ${isRecent ? 'text-white opacity-100 scale-110 drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]' : 'text-white/30 opacity-60 scale-100'}`}
+                              >
+                                {word}
+                              </span>
+                            );
+                          })
+                        ) : (
+                           <span className="text-white/20 not-italic font-bold text-2xl tracking-tight animate-pulse">
+                              {isConnecting ? "Establishing secure line..." : "Awaiting your voice..."}
+                           </span>
                         )}
-                        {!liveTranscript && !isConnecting && "I'm listening..."}
-                        {!liveTranscript && isConnecting && "Establishing secure line..."}
+                        {isLiveListening && (
+                          <span className="inline-block w-4 h-[1em] bg-secondary-fixed ml-2 animate-pulse align-middle rounded-sm shadow-[0_0_15px_rgba(var(--secondary-fixed-rgb),0.5)]"></span>
+                        )}
                       </div>
                     </div>
                   </div>
