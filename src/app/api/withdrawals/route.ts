@@ -76,7 +76,7 @@ export async function POST(req: Request) {
         bank_code: user.payoutBankCode,
         account_number: user.payoutAccountNumber,
         account_name: user.payoutAccountName || user.name || "Kliq Merchant",
-        currency: "NGN",
+        currency_id: "NGN",
         transaction_reference: reference
       })
     });

@@ -84,6 +84,7 @@ export default function SettingsPage() {
     if (formData.payoutAccountNumber.length !== 10 || !formData.payoutBankCode) return;
     
     setIsLookingUp(true);
+    setMessage(null);
     try {
       const res = await fetch("/api/withdrawals/lookup", {
         method: "POST",
@@ -96,9 +97,12 @@ export default function SettingsPage() {
       const data = await res.json();
       if (res.ok && data.account_name) {
         setFormData(prev => ({ ...prev, payoutAccountName: data.account_name }));
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Account verification failed. Please check your bank and account number.' });
       }
     } catch (e) {
       console.error("Account lookup failed", e);
+      setMessage({ type: 'error', text: 'Network error during account verification. Try again later.' });
     } finally {
       setIsLookingUp(false);
     }
@@ -233,22 +237,29 @@ export default function SettingsPage() {
                     <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">
                       Account Number
                     </label>
-                    <div className="relative">
+                    <div className="relative flex gap-2">
                       <input
                         type="text"
                         name="payoutAccountNumber"
                         value={formData.payoutAccountNumber}
                         onChange={handleChange}
-                        onBlur={lookupAccount}
                         maxLength={10}
-                        className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 font-medium text-on-surface focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                        className="flex-1 bg-surface-container-low border-none rounded-xl px-4 py-3 font-medium text-on-surface focus:ring-2 focus:ring-primary/20 transition-all outline-none"
                         placeholder="10 Digits"
                       />
-                      {isLookingUp && (
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                          <span className="material-symbols-outlined animate-spin text-primary text-sm">progress_activity</span>
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        onClick={lookupAccount}
+                        disabled={isLookingUp || formData.payoutAccountNumber.length !== 10 || !formData.payoutBankCode}
+                        className="px-4 bg-secondary-container text-on-secondary-container font-bold text-xs rounded-xl hover:bg-secondary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                      >
+                        {isLookingUp ? (
+                          <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-sm">person_search</span>
+                        )}
+                        Verify
+                      </button>
                     </div>
                   </div>
                 </div>

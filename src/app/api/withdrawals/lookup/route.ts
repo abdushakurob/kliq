@@ -35,7 +35,12 @@ export async function POST(req: Request) {
     const squadData = await squadRes.json();
 
     if (!squadRes.ok || squadData.status !== 200) {
+      console.error("[AccountLookup] Squad API Error:", squadData);
       return NextResponse.json({ error: squadData.message || "Account lookup failed" }, { status: 400 });
+    }
+
+    if (!squadData.data?.account_name) {
+      return NextResponse.json({ error: "Could not verify account name. Please check the details." }, { status: 404 });
     }
 
     return NextResponse.json({ 
