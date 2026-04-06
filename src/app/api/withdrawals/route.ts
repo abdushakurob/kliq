@@ -56,14 +56,14 @@ export async function POST(req: Request) {
 
     // 3. Initiate Squad Payout
     const squadSecret = process.env.SQUAD_SECRET_KEY || process.env.SQAD_TEST_KEY;
-    const isProduction = process.env.NODE_ENV === "production";
-    const baseUrl = isProduction 
-      ? "https://api-d.squadco.com" 
-      : "https://sandbox-api-d.squadco.com";
+    const isSandbox = squadSecret?.startsWith("sk_test") || squadSecret?.startsWith("sandbox_sk_");
+    const baseUrl = isSandbox 
+      ? "https://sandbox-api-d.squadco.com" 
+      : "https://api-d.squadco.com";
       
     const reference = `WDL_${userId}_${Date.now()}`;
 
-    console.log(`[Withdrawals] Initiating payout via ${baseUrl}`);
+    console.log(`[Withdrawals] Initiating payout via ${baseUrl} (Sandbox: ${isSandbox})`);
 
     const squadRes = await fetch(`${baseUrl}/payout/transfer`, {
       method: "POST",

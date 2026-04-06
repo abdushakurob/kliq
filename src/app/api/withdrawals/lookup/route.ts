@@ -13,10 +13,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Bank code and account number are required" }, { status: 400 });
     }
 
-    const squadSecret = process.env.SQAD_TEST_KEY;
+    const squadSecret = process.env.SQUAD_SECRET_KEY || process.env.SQAD_TEST_KEY;
+    const isSandbox = squadSecret?.startsWith("sk_test") || squadSecret?.startsWith("sandbox_sk_");
+    const baseUrl = isSandbox 
+      ? "https://sandbox-api-d.squadco.com" 
+      : "https://api-d.squadco.com";
 
     // Squadco Account Lookup API
-    const squadRes = await fetch("https://sandbox-api-d.squadco.com/payout/account_lookup", {
+    const squadRes = await fetch(`${baseUrl}/payout/account/lookup`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${squadSecret}`,
