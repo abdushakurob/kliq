@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
+import Wordmark from "@/components/Wordmark";
 
 export default function DashboardLayout({
   children,
@@ -27,11 +27,11 @@ export default function DashboardLayout({
       <footer className="ml-72 mr-8 border-t border-zinc-200/10 py-12">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center px-4">
           <div className="flex flex-col mb-4 md:mb-0">
-            <span className="text-lg font-bold text-teal-950 dark:text-white font-headline">
-              Kliq
-            </span>
-            <p className="text-zinc-500 text-xs mt-1">
-              © 2026 Kliq. Built for the Nigerian Creative Economy.
+            <Link href="/dashboard" className="block mb-2">
+              <Wordmark size="sm" className="grayscale opacity-50 contrast-125" />
+            </Link>
+            <p className="text-zinc-500 text-[10px] font-medium ml-1">
+              © 2026. Built for the Modern Creative Economy.
             </p>
           </div>
           <div className="flex gap-8">

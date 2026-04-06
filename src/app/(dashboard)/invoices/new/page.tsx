@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import NextImage from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useGeminiLive } from "@/hooks/useGeminiLive";
 import ReactMarkdown from "react-markdown";
+import Wordmark from "@/components/Wordmark";
 
 export default function CreateInvoicePage() {
   const router = useRouter();
@@ -589,7 +591,11 @@ export default function CreateInvoicePage() {
             <div className="p-10 relative z-10">
               <div className="flex justify-between items-start mb-12">
                 <div>
-                  <h4 className="text-2xl font-black text-primary tracking-tighter font-headline">Kliq</h4>
+                <div className="flex items-center gap-2">
+                  <div className="block">
+                    <Wordmark size="sm" />
+                  </div>
+                </div>
                   <div className="mt-4 space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">From</p>
                     <p className="text-sm font-bold">{session?.user?.name || "Business Name"}</p>
@@ -656,7 +662,7 @@ export default function CreateInvoicePage() {
                 </div>
               </div>
               <div className="mt-12 flex justify-center opacity-[0.03] grayscale pointer-events-none absolute bottom-4 w-full left-0 z-0 overflow-hidden">
-                <h4 className="text-[10rem] font-black text-primary tracking-tighter italic select-none leading-none">Kliq</h4>
+                <Wordmark size="xl" className="italic opacity-10" />
               </div>
             </div>
           </div>

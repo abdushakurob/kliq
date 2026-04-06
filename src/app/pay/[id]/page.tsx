@@ -1,6 +1,8 @@
 import React from "react";
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import dbConnect from "@/lib/mongoose";
+import Wordmark from "@/components/Wordmark";
 import Invoice from "@/models/Invoice";
 import Client from "@/models/Client";
 import User from "@/models/User";
@@ -41,8 +43,10 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
       <div className="w-full max-w-2xl relative z-10">
         
         {/* Header branding */}
-        <div className="mb-8 flex justify-between items-center px-4">
-          <h1 className="text-3xl font-black text-primary tracking-tighter font-headline italic">Kliq</h1>
+        <div className="mb-8 flex justify-between items-center px-4 md:px-0">
+          <div className="block">
+             <Wordmark size="md" />
+          </div>
           <div className="text-right">
              <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Secure Invoice</p>
              <p className="text-sm font-bold text-on-surface">Payment Portal</p>
