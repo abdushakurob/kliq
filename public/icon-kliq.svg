@@ -1,0 +1,6 @@
+<svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded Square Container (Kliq's Box) -->
+  <rect width="60" height="60" rx="16" fill="#003434"/>
+  <!-- Signature Electric Green Dot -->
+  <circle cx="30" cy="30" r="10" fill="#81FF1F"/>
+</svg>
